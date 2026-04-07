@@ -1,0 +1,72 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+const DOMINIO = '@educacao.mg.gov.br';
+
+export default function Login() {
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
+  const [erro, setErro] = useState('');
+  const navigate = useNavigate();
+
+  function handleLogin(e: React.FormEvent) {
+    e.preventDefault();
+    setErro('');
+    if (!email.endsWith(DOMINIO)) {
+      setErro(`Use seu e-mail institucional (${DOMINIO})`);
+      return;
+    }
+    if (senha.length < 6) {
+      setErro('Senha deve ter pelo menos 6 caracteres');
+      return;
+    }
+    localStorage.setItem('admin_email', email);
+    navigate('/dashboard');
+  }
+
+  return (
+    <div style={s.page}>
+      <div style={s.card}>
+        <div style={s.logoWrap}>
+          <img src="./logo.png" alt="Logo" style={s.logo} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+        </div>
+        <h1 style={s.title}>Biblioteca Marlene de Souza Queiroz</h1>
+        <p style={s.subtitle}>E. E. Cel. José Venâncio de Souza</p>
+        <p style={s.painelLabel}>Painel Administrativo</p>
+
+        <form onSubmit={handleLogin} style={s.form}>
+          {erro && <div style={s.erro}>{erro}</div>}
+          <div style={s.field}>
+            <label style={s.label}>E-mail institucional</label>
+            <input style={s.input} type="email"
+              placeholder={`seu.nome${DOMINIO}`}
+              value={email} onChange={e => setEmail(e.target.value)} />
+          </div>
+          <div style={s.field}>
+            <label style={s.label}>Senha</label>
+            <input style={s.input} type="password"
+              placeholder="Sua senha"
+              value={senha} onChange={e => setSenha(e.target.value)} />
+          </div>
+          <button style={s.btn} type="submit">Entrar no painel</button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+const s: Record<string, React.CSSProperties> = {
+  page: { minHeight: '100vh', background: '#f5efe3', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 },
+  card: { background: '#fdfaf4', borderRadius: 20, padding: 40, width: '100%', maxWidth: 420, border: '1px solid #d9cfbe', boxShadow: '0 4px 24px rgba(26,18,8,0.10)' },
+  logoWrap: { display: 'flex', justifyContent: 'center', marginBottom: 16 },
+  logo: { width: 90, height: 90, objectFit: 'contain' },
+  title: { fontSize: 18, fontWeight: 700, color: '#1a1208', textAlign: 'center', marginBottom: 4 },
+  subtitle: { fontSize: 13, color: '#4a7c59', textAlign: 'center', fontWeight: 600, marginBottom: 4 },
+  painelLabel: { fontSize: 12, color: '#8a7d68', textAlign: 'center', marginBottom: 28, textTransform: 'uppercase', letterSpacing: 1 },
+  form: { display: 'flex', flexDirection: 'column', gap: 16 },
+  field: { display: 'flex', flexDirection: 'column', gap: 6 },
+  label: { fontSize: 12, fontWeight: 700, color: '#8a7d68', textTransform: 'uppercase', letterSpacing: 0.5 },
+  input: { height: 44, borderRadius: 10, border: '1px solid #d9cfbe', background: '#f5efe3', padding: '0 14px', fontSize: 14, color: '#1a1208', outline: 'none' },
+  btn: { height: 48, borderRadius: 12, background: '#c97b2e', color: '#1a1208', fontWeight: 700, fontSize: 15, border: 'none', cursor: 'pointer' },
+  erro: { background: 'rgba(184,76,46,0.08)', color: '#b84c2e', borderRadius: 8, padding: '10px 14px', fontSize: 13, textAlign: 'center' },
+};
