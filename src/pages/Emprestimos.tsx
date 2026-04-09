@@ -9,15 +9,38 @@ export default function Emprestimos() {
   const [filtroAluno, setFiltroAluno] = useState('todos');
   const [filtroTurma, setFiltroTurma] = useState('todos');
 
-  useEffect(() => { carregarEmprestimos(); }, []);
+  useEffect(() => {
+    carregarEmprestimos();
 
-  async function carregarEmprestimos() {
+    const refreshInterval = setInterval(() => {
+      carregarEmprestimos(false);
+    }, 15000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        carregarEmprestimos(false);
+      }
+    };
+
+    window.addEventListener('focus', handleVisibility);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(refreshInterval);
+      window.removeEventListener('focus', handleVisibility);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
+
+  async function carregarEmprestimos(mostrarErro = true) {
     try {
       setCarregando(true);
       const { data } = await api.get('/emprestimos');
       setEmprestimos(data);
     } catch {
-      alert('Erro ao carregar empréstimos');
+      if (mostrarErro) {
+        alert('Erro ao carregar empréstimos');
+      }
     } finally {
       setCarregando(false);
     }

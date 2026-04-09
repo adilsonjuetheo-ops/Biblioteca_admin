@@ -11,12 +11,26 @@ interface Usuario {
   criadoEm: string;
 }
 
+interface Emprestimo {
+  id: number;
+  livroId: number;
+  livroTitulo: string;
+  livroAutor: string;
+  status: string;
+  dataReserva: string;
+  dataDevolucao: string;
+  renovado: boolean;
+}
+
 export default function Usuarios() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [mostrarForm, setMostrarForm] = useState(false);
   const [busca, setBusca] = useState('');
   const [filtroPerfil, setFiltroPerfil] = useState('todos');
+  const [usuarioSelecionado, setUsuarioSelecionado] = useState<Usuario | null>(null);
+  const [historicoUsuario, setHistoricoUsuario] = useState<Emprestimo[]>([]);
+  const [carregandoHistorico, setCarregandoHistorico] = useState(false);
 
   const [form, setForm] = useState({
     nome: '', email: '', senha: '',
@@ -37,6 +51,20 @@ export default function Usuarios() {
     }
   }
 
+  async function carregarHistorico(usuario: Usuario) {
+    try {
+      setCarregandoHistorico(true);
+      setUsuarioSelecionado(usuario);
+      const { data } = await api.get('/emprestimos');
+      const emprestimosDoUsuario = data.filter((e: any) => e.usuarioId === usuario.id);
+      setHistoricoUsuario(emprestimosDoUsuario);
+    } catch {
+      alert('Erro ao carregar histórico');
+    } finally {
+      setCarregandoHistorico(false);
+    }
+  }
+
   async function handleSalvar(e: React.FormEvent) {
     e.preventDefault();
     if (!form.nome || !form.email || !form.senha) {
@@ -44,7 +72,7 @@ export default function Usuarios() {
     }
     try {
       await api.post('/usuarios', form);
-      alert(`${form.perfil === 'aluno' ? 'Aluno' : 'Professor'} cadastrado com sucesso!`);
+      alert(`Usuário cadastrado com sucesso!`);
       setMostrarForm(false);
       setForm({ nome: '', email: '', senha: '', matricula: '', turma: '', perfil: 'aluno' });
       carregarUsuarios();
@@ -74,10 +102,129 @@ export default function Usuarios() {
 
   const coresPerfil: any = {
     aluno: { bg: 'rgba(74,124,89,0.12)', color: '#4a7c59' },
-    professor: { bg: 'rgba(201,123,46,0.12)', color: '#c97b2e' },
+        professor: { bg: 'rgba(201,123,46,0.12)', color: '#c97b2e' },
     bibliotecario: { bg: 'rgba(74,100,144,0.12)', color: '#4a6490' },
     coordenacao: { bg: 'rgba(184,76,46,0.12)', color: '#b84c2e' },
   };
+
+  const coresStatus: any = {
+    reservado: { bg: 'rgba(201,123,46,0.12)', color: '#c97b2e' },
+    retirado: { bg: 'rgba(74,100,144,0.12)', color: '#4a6490' },
+    devolvido: { bg: 'rgba(74,124,89,0.12)', color: '#4a7c59' },
+    atrasado: { bg: 'rgba(184,76,46,0.12)', color: '#b84c2e' },
+  };
+
+  const ativos = historicoUsuario.filter(e => e.status === 'reservado' || e.status === 'retirado');
+  const devolvidos = historicoUsuario.filter(e => e.status === 'devolvido');
+
+  if (usuarioSelecionado) {
+    return (
+      <div style={s.page}>
+        <div style={s.topBar}>
+          <div>
+            <button style={s.btnVoltar} onClick={() => { setUsuarioSelecionado(null); setHistoricoUsuario([]); }}>
+              ← Voltar
+            </button>
+            <h1 style={s.titulo}>Histórico de {usuarioSelecionado.nome}</h1>
+            <p style={s.subtitulo}>
+              {usuarioSelecionado.email}
+              {usuarioSelecionado.turma ? ` · Turma ${usuarioSelecionado.turma}` : ''}
+              {usuarioSelecionado.matricula ? ` · Mat. ${usuarioSelecionado.matricula}` : ''}
+            </p>
+          </div>
+        </div>
+
+        <div style={s.statsRow}>
+          {[
+            { num: historicoUsuario.length, label: 'Total de empréstimos', cor: '#1a1208' },
+            { num: ativos.length, label: 'Empréstimos ativos', cor: '#c97b2e' },
+            { num: devolvidos.length, label: 'Livros devolvidos', cor: '#4a7c59' },
+          ].map((st, i) => (
+            <div key={i} style={s.statCard}>
+              <div style={{ ...s.statNum, color: st.cor }}>{st.num}</div>
+              <div style={s.statLabel}>{st.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {carregandoHistorico ? (
+          <div style={s.loading}>Carregando histórico...</div>
+        ) : historicoUsuario.length === 0 ? (
+          <div style={s.empty}>
+            <p style={s.emptyText}>Nenhum empréstimo registrado para este usuário</p>
+          </div>
+        ) : (
+          <>
+            {ativos.length > 0 && (
+              <>
+                <h2 style={s.secaoTitulo}>📋 Empréstimos ativos</h2>
+                <div style={s.tabela}>
+                  <div style={s.tabelaHeader}>
+                    <span style={{ flex: 3 }}>Livro</span>
+                    <span style={{ flex: 1 }}>Data reserva</span>
+                    <span style={{ flex: 1, textAlign: 'center' }}>Status</span>
+                    <span style={{ flex: 1, textAlign: 'center' }}>Renovado</span>
+                  </div>
+                  {ativos.map(emp => (
+                    <div key={emp.id} style={s.tabelaRow}>
+                      <div style={{ flex: 3 }}>
+                        <div style={s.livroTitulo}>{emp.livroTitulo || `Livro #${emp.livroId}`}</div>
+                        <div style={s.livroAutor}>{emp.livroAutor || '—'}</div>
+                      </div>
+                      <span style={{ flex: 1, fontSize: 13, color: '#8a7d68' }}>
+                        {emp.dataReserva ? new Date(emp.dataReserva).toLocaleDateString('pt-BR') : '—'}
+                      </span>
+                      <span style={{ flex: 1, textAlign: 'center' }}>
+                        <span style={{
+                          ...s.badge,
+                          background: coresStatus[emp.status]?.bg,
+                          color: coresStatus[emp.status]?.color,
+                        }}>{emp.status}</span>
+                      </span>
+                      <span style={{ flex: 1, textAlign: 'center', fontSize: 13, color: emp.renovado ? '#4a7c59' : '#8a7d68' }}>
+                        {emp.renovado ? '✓ Sim' : '✗ Não'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {devolvidos.length > 0 && (
+              <>
+                <h2 style={{ ...s.secaoTitulo, marginTop: 24 }}>📚 Histórico de devoluções</h2>
+                <div style={s.tabela}>
+                  <div style={s.tabelaHeader}>
+                    <span style={{ flex: 3 }}>Livro</span>
+                    <span style={{ flex: 1 }}>Data reserva</span>
+                    <span style={{ flex: 1 }}>Data devolução</span>
+                    <span style={{ flex: 1, textAlign: 'center' }}>Renovado</span>
+                  </div>
+                  {devolvidos.map(emp => (
+                    <div key={emp.id} style={s.tabelaRow}>
+                      <div style={{ flex: 3 }}>
+                        <div style={s.livroTitulo}>{emp.livroTitulo || `Livro #${emp.livroId}`}</div>
+                        <div style={s.livroAutor}>{emp.livroAutor || '—'}</div>
+                      </div>
+                      <span style={{ flex: 1, fontSize: 13, color: '#8a7d68' }}>
+                        {emp.dataReserva ? new Date(emp.dataReserva).toLocaleDateString('pt-BR') : '—'}
+                      </span>
+                      <span style={{ flex: 1, fontSize: 13, color: '#4a7c59' }}>
+                        {emp.dataDevolucao ? new Date(emp.dataDevolucao).toLocaleDateString('pt-BR') : '—'}
+                      </span>
+                      <span style={{ flex: 1, textAlign: 'center', fontSize: 13, color: emp.renovado ? '#4a7c59' : '#8a7d68' }}>
+                        {emp.renovado ? '✓ Sim' : '✗ Não'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div style={s.page}>
@@ -190,9 +337,12 @@ export default function Usuarios() {
                   {u.perfil}
                 </span>
               </span>
-              <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+              <div style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: 8 }}>
+                <button style={s.btnHistorico} onClick={() => carregarHistorico(u)}>
+                  📋 Histórico
+                </button>
                 <button style={s.btnExcluir} onClick={() => handleExcluir(u.id, u.nome)}>
-                  🗑 Excluir
+                  🗑
                 </button>
               </div>
             </div>
@@ -209,6 +359,12 @@ const s: Record<string, React.CSSProperties> = {
   titulo: { fontSize: 24, fontWeight: 700, color: '#1a1208', marginBottom: 4 },
   subtitulo: { fontSize: 14, color: '#8a7d68' },
   btnNovo: { background: '#c97b2e', color: '#1a1208', border: 'none', borderRadius: 10, padding: '10px 20px', fontWeight: 700, fontSize: 14, cursor: 'pointer' },
+  btnVoltar: { background: 'transparent', border: 'none', color: '#c97b2e', fontSize: 14, fontWeight: 600, cursor: 'pointer', padding: 0, marginBottom: 8 },
+  secaoTitulo: { fontSize: 16, fontWeight: 700, color: '#1a1208', marginBottom: 12 },
+  statsRow: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 28 },
+  statCard: { background: '#fdfaf4', border: '1px solid #d9cfbe', borderRadius: 16, padding: 20, textAlign: 'center' },
+  statNum: { fontSize: 32, fontWeight: 700, marginBottom: 6 },
+  statLabel: { fontSize: 13, color: '#8a7d68', fontWeight: 500 },
   formCard: { background: '#fdfaf4', border: '1px solid #d9cfbe', borderRadius: 16, padding: 28, marginBottom: 24 },
   formTitulo: { fontSize: 18, fontWeight: 700, color: '#1a1208', marginBottom: 20 },
   form: { display: 'flex', flexDirection: 'column', gap: 16 },
@@ -224,13 +380,16 @@ const s: Record<string, React.CSSProperties> = {
   filtroRow: { display: 'flex', gap: 8, flexWrap: 'wrap' },
   filtroBtn: { padding: '8px 16px', borderRadius: 20, border: '1px solid #d9cfbe', background: '#fdfaf4', color: '#8a7d68', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
   filtroAtivo: { background: '#1a1208', color: '#f5efe3', borderColor: '#1a1208' },
-  tabela: { background: '#fdfaf4', border: '1px solid #d9cfbe', borderRadius: 16, overflow: 'hidden' },
+  tabela: { background: '#fdfaf4', border: '1px solid #d9cfbe', borderRadius: 16, overflow: 'hidden', marginBottom: 24 },
   tabelaHeader: { display: 'flex', padding: '12px 20px', background: '#f5efe3', borderBottom: '1px solid #d9cfbe', fontSize: 11, fontWeight: 700, color: '#8a7d68', textTransform: 'uppercase', letterSpacing: 0.5 },
   tabelaRow: { display: 'flex', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid #f0e8dc' },
   userNome: { fontSize: 14, fontWeight: 700, color: '#1a1208', marginBottom: 2 },
   userEmail: { fontSize: 12, color: '#8a7d68' },
+  livroTitulo: { fontSize: 14, fontWeight: 700, color: '#1a1208', marginBottom: 2 },
+  livroAutor: { fontSize: 12, color: '#8a7d68' },
   badge: { padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700 },
-  btnExcluir: { background: 'rgba(184,76,46,0.12)', color: '#b84c2e', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
+  btnHistorico: { background: 'rgba(201,123,46,0.12)', color: '#c97b2e', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
+  btnExcluir: { background: 'rgba(184,76,46,0.12)', color: '#b84c2e', border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 14, cursor: 'pointer' },
   loading: { textAlign: 'center', padding: 60, color: '#8a7d68', fontSize: 16 },
   empty: { background: '#fdfaf4', border: '1px dashed #d9cfbe', borderRadius: 16, padding: 60, textAlign: 'center' },
   emptyText: { color: '#8a7d68', fontSize: 16 },

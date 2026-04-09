@@ -25,15 +25,38 @@ export default function Livros() {
   sinopse: '', capa: '', totalExemplares: 1, disponiveis: 1,
 });
 
-  useEffect(() => { carregarLivros(); }, []);
+  useEffect(() => {
+    carregarLivros();
 
-  async function carregarLivros() {
+    const refreshInterval = setInterval(() => {
+      carregarLivros(false);
+    }, 15000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        carregarLivros(false);
+      }
+    };
+
+    window.addEventListener('focus', handleVisibility);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(refreshInterval);
+      window.removeEventListener('focus', handleVisibility);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
+
+  async function carregarLivros(mostrarErro = true) {
     try {
       setCarregando(true);
       const { data } = await api.get('/livros');
       setLivros(data);
     } catch {
-      alert('Erro ao carregar livros');
+      if (mostrarErro) {
+        alert('Erro ao carregar livros');
+      }
     } finally {
       setCarregando(false);
     }

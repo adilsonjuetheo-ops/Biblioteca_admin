@@ -5,6 +5,7 @@ const menus = [
   { path: '/livros', icon: '📚', label: 'Acervo' },
   { path: '/emprestimos', icon: '📋', label: 'Empréstimos' },
   { path: '/usuarios', icon: '👥', label: 'Usuários' },
+  { path: '/comunicados', icon: '📢', label: 'Comunicados' },
 ];
 
 export default function Sidebar() {
@@ -19,9 +20,11 @@ export default function Sidebar() {
   return (
     <div style={s.sidebar}>
       <div style={s.logo}>
-        <img src="./logo.png" alt="Logo" style={s.logoImg} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+        <div style={s.logoImgWrap}>
+          <img src="./logo.png" alt="Logo" style={s.logoImg} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+        </div>
         <div>
-          <div style={s.logoTitle}>Biblioteca</div>
+          <div style={s.logoTitle}>Biblioteca Marlene de Souza Queiroz</div>
           <div style={s.logoSub}>Painel Admin</div>
         </div>
       </div>
@@ -48,8 +51,9 @@ export default function Sidebar() {
 const s: Record<string, React.CSSProperties> = {
   sidebar: { width: 220, minHeight: '100vh', background: '#1a1208', display: 'flex', flexDirection: 'column', padding: '24px 16px', flexShrink: 0 },
   logo: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 40, padding: '0 8px' },
-  logoImg: { width: 40, height: 40, objectFit: 'contain' },
-  logoTitle: { fontSize: 14, fontWeight: 700, color: '#f5efe3' },
+  logoImgWrap: { width: 44, height: 44, borderRadius: 10, background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 4, flexShrink: 0 },
+  logoImg: { width: 34, height: 34, objectFit: 'contain' },
+  logoTitle: { fontSize: 12, lineHeight: 1.25, fontWeight: 700, color: '#f5efe3' },
   logoSub: { fontSize: 11, color: '#8a7d68', marginTop: 1 },
   nav: { display: 'flex', flexDirection: 'column', gap: 4, flex: 1 },
   menuItem: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'rgba(245,239,227,0.5)', fontSize: 14, fontWeight: 500, cursor: 'pointer', width: '100%', textAlign: 'left' },

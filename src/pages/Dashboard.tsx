@@ -26,16 +26,49 @@ export default function Dashboard() {
   const [livros, setLivros] = useState<Livro[]>([]);
   const [emprestimos, setEmprestimos] = useState<Emprestimo[]>([]);
   const [carregando, setCarregando] = useState(false);
+  const [agora, setAgora] = useState(Date.now());
   const email = localStorage.getItem('admin_email') || '';
   const nome = email.split('@')[0]
   .replace('.', ' ')
   .split(' ')
   .map(p => p.charAt(0).toUpperCase() + p.slice(1))
   .join(' ');
+  const horaAtual = Number(new Intl.DateTimeFormat('pt-BR', {
+    hour: '2-digit',
+    hour12: false,
+    timeZone: 'America/Sao_Paulo',
+  }).format(new Date(agora)));
+  const saudacao = horaAtual < 12 ? 'Bom dia' : horaAtual < 18 ? 'Boa tarde' : 'Boa noite';
 
-  useEffect(() => { carregarDados(); }, []);
+  useEffect(() => {
+    carregarDados();
 
-  async function carregarDados() {
+    const refreshInterval = setInterval(() => {
+      carregarDados(false);
+    }, 15000);
+
+    const clockInterval = setInterval(() => {
+      setAgora(Date.now());
+    }, 60000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        carregarDados(false);
+      }
+    };
+
+    window.addEventListener('focus', handleVisibility);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(refreshInterval);
+      clearInterval(clockInterval);
+      window.removeEventListener('focus', handleVisibility);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, []);
+
+  async function carregarDados(mostrarErro = true) {
     try {
       setCarregando(true);
       const [resLivros, resEmp] = await Promise.all([
@@ -45,7 +78,9 @@ export default function Dashboard() {
       setLivros(resLivros.data);
       setEmprestimos(resEmp.data);
     } catch {
-      alert('Erro ao carregar dados');
+      if (mostrarErro) {
+        alert('Erro ao carregar dados');
+      }
     } finally {
       setCarregando(false);
     }
@@ -192,7 +227,7 @@ export default function Dashboard() {
     <div style={s.page}>
       <div style={s.topBar}>
         <div style={s.welcome}>
-          <h1 style={s.titulo}>Bom dia, {nome}! 👋</h1>
+          <h1 style={s.titulo}>{saudacao}, {nome}! 👋</h1>
           <p style={s.subtitulo}>Aqui está o resumo da biblioteca hoje</p>
         </div>
         <div style={s.exportBtns}>

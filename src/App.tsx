@@ -4,13 +4,28 @@ import Dashboard from './pages/Dashboard';
 import Livros from './pages/Livros';
 import Emprestimos from './pages/Emprestimos';
 import Usuarios from './pages/Usuarios';
+import Comunicados from './pages/Comunicados';
 import Sidebar from './components/Sidebar';
 
 function Layout({ children }: { children: React.ReactNode }) {
+  const anoAtual = new Date().getFullYear();
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#f5efe3' }}>
       <Sidebar />
-      <div style={{ flex: 1, overflow: 'auto' }}>{children}</div>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+        <div style={{ flex: 1, overflow: 'auto' }}>{children}</div>
+        <footer style={{
+          borderTop: '1px solid #d9cfbe',
+          background: '#fdfaf4',
+          color: '#8a7d68',
+          fontSize: 12,
+          textAlign: 'center',
+          padding: '12px 16px',
+        }}>
+          © {anoAtual} Biblioteca Marlene de Souza Queiroz. Todos os direitos reservados. Prof. Adilson_Dev e Terceirão 2k26.
+        </footer>
+      </div>
     </div>
   );
 }
@@ -35,7 +50,11 @@ export default function App() {
           <RotaProtegida><Layout><Livros /></Layout></RotaProtegida>
         } />
         <Route path="/emprestimos" element={
+          
           <RotaProtegida><Layout><Emprestimos /></Layout></RotaProtegida>
+        } />
+        <Route path="/comunicados" element={
+          <RotaProtegida><Layout><Comunicados /></Layout></RotaProtegida>
         } />
       </Routes>
     </BrowserRouter>
