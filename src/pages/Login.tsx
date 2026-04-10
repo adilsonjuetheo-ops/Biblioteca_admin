@@ -1,15 +1,18 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
+const API_URL = 'https://bibliotecaapi-production-7ee0.up.railway.app';
 const DOMINIO = '@educacao.mg.gov.br';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  function handleLogin(e: React.FormEvent) {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setErro('');
     if (!email.endsWith(DOMINIO)) {
@@ -20,20 +23,33 @@ export default function Login() {
       setErro('Senha deve ter pelo menos 6 caracteres');
       return;
     }
-    localStorage.setItem('admin_email', email);
-    navigate('/dashboard');
+    setLoading(true);
+    try {
+      const { data } = await axios.post(`${API_URL}/usuarios/login`, { email, senha });
+      if (data.perfil !== 'bibliotecario') {
+        setErro('Acesso restrito ao bibliotecário');
+        return;
+      }
+      localStorage.setItem('admin_token', data.token);
+      localStorage.setItem('admin_email', email);
+      navigate('/dashboard');
+    } catch (err: any) {
+      setErro(err?.response?.data?.erro || 'E-mail ou senha incorretos');
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
     <div style={s.page}>
       <div style={s.card}>
         <div style={s.logoWrap}>
-          <img src="./logo.png" alt="Logo" style={s.logo} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+          <img src="./logo.png" alt="Logo" style={s.logo}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
         </div>
         <h1 style={s.title}>Biblioteca Marlene de Souza Queiroz</h1>
         <p style={s.subtitle}>E. E. Cel. José Venâncio de Souza</p>
         <p style={s.painelLabel}>Painel Administrativo</p>
-
         <form onSubmit={handleLogin} style={s.form}>
           {erro && <div style={s.erro}>{erro}</div>}
           <div style={s.field}>
@@ -48,7 +64,10 @@ export default function Login() {
               placeholder="Sua senha"
               value={senha} onChange={e => setSenha(e.target.value)} />
           </div>
-          <button style={s.btn} type="submit">Entrar no painel</button>
+          <button style={{ ...s.btn, opacity: loading ? 0.7 : 1 }}
+            type="submit" disabled={loading}>
+            {loading ? 'Entrando...' : 'Entrar no painel'}
+          </button>
         </form>
       </div>
     </div>

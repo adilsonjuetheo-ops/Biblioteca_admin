@@ -26,13 +26,16 @@ export default function Dashboard() {
   const [livros, setLivros] = useState<Livro[]>([]);
   const [emprestimos, setEmprestimos] = useState<Emprestimo[]>([]);
   const [carregando, setCarregando] = useState(false);
+  const [refreshandoSilencioso, setRefresandoSilencioso] = useState(false);
   const [agora, setAgora] = useState(Date.now());
+
   const email = localStorage.getItem('admin_email') || '';
   const nome = email.split('@')[0]
-  .replace('.', ' ')
-  .split(' ')
-  .map(p => p.charAt(0).toUpperCase() + p.slice(1))
-  .join(' ');
+    .replace(/\./g, ' ')
+    .split(' ')
+    .map(p => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(' ');
+
   const horaAtual = Number(new Intl.DateTimeFormat('pt-BR', {
     hour: '2-digit',
     hour12: false,
@@ -41,25 +44,14 @@ export default function Dashboard() {
   const saudacao = horaAtual < 12 ? 'Bom dia' : horaAtual < 18 ? 'Boa tarde' : 'Boa noite';
 
   useEffect(() => {
-    carregarDados();
-
-    const refreshInterval = setInterval(() => {
-      carregarDados(false);
-    }, 15000);
-
-    const clockInterval = setInterval(() => {
-      setAgora(Date.now());
-    }, 60000);
-
+    carregarDados(true);
+    const refreshInterval = setInterval(() => { carregarDados(false); }, 15000);
+    const clockInterval = setInterval(() => { setAgora(Date.now()); }, 60000);
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        carregarDados(false);
-      }
+      if (document.visibilityState === 'visible') carregarDados(false);
     };
-
     window.addEventListener('focus', handleVisibility);
     document.addEventListener('visibilitychange', handleVisibility);
-
     return () => {
       clearInterval(refreshInterval);
       clearInterval(clockInterval);
@@ -68,9 +60,9 @@ export default function Dashboard() {
     };
   }, []);
 
-  async function carregarDados(mostrarErro = true) {
+  async function carregarDados(exibirSpinner = true) {
+    if (exibirSpinner) { setCarregando(true); } else { setRefresandoSilencioso(true); }
     try {
-      setCarregando(true);
       const [resLivros, resEmp] = await Promise.all([
         api.get('/livros'),
         api.get('/emprestimos'),
@@ -78,11 +70,10 @@ export default function Dashboard() {
       setLivros(resLivros.data);
       setEmprestimos(resEmp.data);
     } catch {
-      if (mostrarErro) {
-        alert('Erro ao carregar dados');
-      }
+      if (exibirSpinner) alert('Erro ao carregar dados');
     } finally {
       setCarregando(false);
+      setRefresandoSilencioso(false);
     }
   }
 
@@ -108,10 +99,8 @@ export default function Dashboard() {
     if (!data) return '—';
     return new Date(data).toLocaleDateString('pt-BR');
   }
-
   function exportarExcel() {
     const wb = XLSX.utils.book_new();
-
     const resumo = [
       { Indicador: 'Total de livros', Valor: livros.length },
       { Indicador: 'Livros disponíveis', Valor: disponiveis.length },
@@ -120,43 +109,28 @@ export default function Dashboard() {
       { Indicador: 'Total devolvidos', Valor: devolvidos.length },
       { Indicador: 'Gerado em', Valor: new Date().toLocaleString('pt-BR') },
     ];
-
     const livrosRows = livros.map(l => ({
-      ID: l.id,
-      Titulo: l.titulo || '—',
-      Autor: l.autor || '—',
-      Genero: l.genero || '—',
-      Exemplares: l.totalExemplares || 0,
-      Disponiveis: l.disponiveis || 0,
+      ID: l.id, Titulo: l.titulo || '—', Autor: l.autor || '—',
+      Genero: l.genero || '—', Exemplares: l.totalExemplares || 0, Disponiveis: l.disponiveis || 0,
     }));
-
     const emprestimosRows = emprestimos.map(e => ({
-      ID: e.id,
-      Livro: e.livroTitulo || '—',
-      Aluno: e.usuarioNome || '—',
-      Status: e.status || '—',
-      Reserva: formatarData(e.dataReserva),
-      Devolucao: formatarData(e.dataDevolucao),
+      ID: e.id, Livro: e.livroTitulo || '—', Aluno: e.usuarioNome || '—',
+      Status: e.status || '—', Reserva: formatarData(e.dataReserva), Devolucao: formatarData(e.dataDevolucao),
     }));
-
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumo), 'Resumo');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(livrosRows), 'Livros');
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(emprestimosRows), 'Emprestimos');
-
-    const dataArquivo = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(wb, `relatorio-biblioteca-${dataArquivo}.xlsx`);
+    XLSX.writeFile(wb, `relatorio-biblioteca-${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
 
   function exportarPdf() {
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
     const dataGeracao = new Date().toLocaleString('pt-BR');
-
     doc.setFontSize(16);
     doc.text('Relatório Administrativo da Biblioteca', 40, 44);
     doc.setFontSize(10);
     doc.setTextColor(90, 90, 90);
     doc.text(`Gerado em: ${dataGeracao}`, 40, 62);
-
     autoTable(doc, {
       startY: 80,
       head: [['Indicador', 'Valor']],
@@ -169,51 +143,29 @@ export default function Dashboard() {
       ],
       headStyles: { fillColor: [201, 123, 46] },
     });
-
     let y = ((doc as any).lastAutoTable?.finalY || 80) + 24;
     doc.setFontSize(12);
     doc.setTextColor(26, 18, 8);
     doc.text('Livros', 40, y);
-
     autoTable(doc, {
       startY: y + 10,
       head: [['ID', 'Título', 'Autor', 'Gênero', 'Disp./Total']],
-      body: livros.map(l => [
-        String(l.id),
-        l.titulo || '—',
-        l.autor || '—',
-        l.genero || '—',
-        `${l.disponiveis || 0}/${l.totalExemplares || 0}`,
-      ]),
+      body: livros.map(l => [String(l.id), l.titulo || '—', l.autor || '—', l.genero || '—', `${l.disponiveis || 0}/${l.totalExemplares || 0}`]),
       headStyles: { fillColor: [74, 124, 89] },
       styles: { fontSize: 9 },
     });
-
     y = ((doc as any).lastAutoTable?.finalY || y) + 24;
-    if (y > 760) {
-      doc.addPage();
-      y = 44;
-    }
+    if (y > 760) { doc.addPage(); y = 44; }
     doc.setFontSize(12);
     doc.text('Empréstimos', 40, y);
-
     autoTable(doc, {
       startY: y + 10,
       head: [['ID', 'Livro', 'Aluno', 'Status', 'Reserva', 'Devolução']],
-      body: emprestimos.map(e => [
-        String(e.id),
-        e.livroTitulo || '—',
-        e.usuarioNome || '—',
-        e.status || '—',
-        formatarData(e.dataReserva),
-        formatarData(e.dataDevolucao),
-      ]),
+      body: emprestimos.map(e => [String(e.id), e.livroTitulo || '—', e.usuarioNome || '—', e.status || '—', formatarData(e.dataReserva), formatarData(e.dataDevolucao)]),
       headStyles: { fillColor: [74, 100, 144] },
       styles: { fontSize: 9 },
     });
-
-    const dataArquivo = new Date().toISOString().slice(0, 10);
-    doc.save(`relatorio-biblioteca-${dataArquivo}.pdf`);
+    doc.save(`relatorio-biblioteca-${new Date().toISOString().slice(0, 10)}.pdf`);
   }
 
   const stats = [
@@ -222,13 +174,17 @@ export default function Dashboard() {
     { num: atrasados.length, label: 'Em atraso', icon: '⚠️', cor: '#b84c2e' },
     { num: disponiveis.length, label: 'Livros disponíveis', icon: '✓', cor: '#4a7c59' },
   ];
-
   return (
     <div style={s.page}>
       <div style={s.topBar}>
         <div style={s.welcome}>
           <h1 style={s.titulo}>{saudacao}, {nome}! 👋</h1>
-          <p style={s.subtitulo}>Aqui está o resumo da biblioteca hoje</p>
+          <p style={s.subtitulo}>
+            Aqui está o resumo da biblioteca hoje
+            {refreshandoSilencioso && (
+              <span style={{ marginLeft: 8, fontSize: 12, color: '#8a7d68' }}>↻ atualizando...</span>
+            )}
+          </p>
         </div>
         <div style={s.exportBtns}>
           <button style={s.btnPdf} onClick={exportarPdf}>Exportar PDF</button>
@@ -258,11 +214,15 @@ export default function Dashboard() {
                   { label: 'Total de livros', valor: livros.length },
                   { label: 'Disponíveis', valor: disponiveis.length },
                   { label: 'Emprestados', valor: ativos.length },
+                  { label: 'Em atraso', valor: atrasados.length },
                   { label: 'Total devolvidos', valor: devolvidos.length },
                 ].map((item, i) => (
                   <div key={i} style={s.resumoItem}>
                     <span style={s.resumoLabel}>{item.label}</span>
-                    <span style={s.resumoValor}>{item.valor}</span>
+                    <span style={{
+                      ...s.resumoValor,
+                      color: item.label === 'Em atraso' && item.valor > 0 ? '#b84c2e' : '#1a1208',
+                    }}>{item.valor}</span>
                   </div>
                 ))}
               </div>
@@ -304,12 +264,7 @@ export default function Dashboard() {
                       <span style={s.rankingTotal}>{item.total} empréstimos</span>
                     </div>
                     <div style={s.rankingBarBg}>
-                      <div
-                        style={{
-                          ...s.rankingBar,
-                          width: `${(item.total / maiorTotalEmprestimos) * 100}%`,
-                        }}
-                      />
+                      <div style={{ ...s.rankingBar, width: `${(item.total / maiorTotalEmprestimos) * 100}%` }} />
                     </div>
                   </div>
                 ))}
@@ -331,12 +286,12 @@ const s: Record<string, React.CSSProperties> = {
   exportBtns: { display: 'flex', gap: 10, flexWrap: 'wrap' },
   btnPdf: { background: '#4a6490', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
   btnExcel: { background: '#4a7c59', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
-  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 },
+  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 28 },
   statCard: { background: '#fdfaf4', border: '1px solid #d9cfbe', borderRadius: 16, padding: 24, textAlign: 'center' },
   statIcon: { fontSize: 28, marginBottom: 10 },
   statNum: { fontSize: 32, fontWeight: 700, marginBottom: 6 },
   statLabel: { fontSize: 13, color: '#8a7d68', fontWeight: 500 },
-  grid2: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 20 },
+  grid2: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20, marginBottom: 20 },
   card: { background: '#fdfaf4', border: '1px solid #d9cfbe', borderRadius: 16, padding: 24 },
   cardTitulo: { fontSize: 16, fontWeight: 700, color: '#1a1208', marginBottom: 20 },
   resumoList: { display: 'flex', flexDirection: 'column', gap: 12 },
