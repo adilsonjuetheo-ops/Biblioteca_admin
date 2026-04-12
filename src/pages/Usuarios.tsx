@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
+import Toast from '../components/Toast';
+import ConfirmModal from '../components/ConfirmModal';
 
 interface Usuario {
   id: number;
@@ -32,10 +34,17 @@ export default function Usuarios() {
   const [historicoUsuario, setHistoricoUsuario] = useState<Emprestimo[]>([]);
   const [carregandoHistorico, setCarregandoHistorico] = useState(false);
 
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [modal, setModal] = useState<{ message: string; onConfirm: () => void } | null>(null);
+
   const [form, setForm] = useState({
     nome: '', email: '', senha: '',
     matricula: '', turma: '', perfil: 'aluno',
   });
+
+  function showToast(message: string, type: 'success' | 'error') {
+    setToast({ message, type });
+  }
 
   useEffect(() => { carregarUsuarios(); }, []);
 
@@ -45,7 +54,7 @@ export default function Usuarios() {
       const { data } = await api.get('/usuarios');
       setUsuarios(data);
     } catch {
-      alert('Erro ao carregar usuários');
+      showToast('Erro ao carregar usuários', 'error');
     } finally {
       setCarregando(false);
     }
@@ -59,7 +68,7 @@ export default function Usuarios() {
       const emprestimosDoUsuario = data.filter((e: any) => e.usuarioId === usuario.id);
       setHistoricoUsuario(emprestimosDoUsuario);
     } catch {
-      alert('Erro ao carregar histórico');
+      showToast('Erro ao carregar histórico', 'error');
     } finally {
       setCarregandoHistorico(false);
     }
@@ -72,24 +81,29 @@ export default function Usuarios() {
     }
     try {
       await api.post('/usuarios', form);
-      alert(`Usuário cadastrado com sucesso!`);
+      showToast('Usuário cadastrado com sucesso!', 'success');
       setMostrarForm(false);
       setForm({ nome: '', email: '', senha: '', matricula: '', turma: '', perfil: 'aluno' });
       carregarUsuarios();
     } catch (err: any) {
-      alert(err.response?.data?.erro || 'Erro ao cadastrar usuário');
+      showToast(err.response?.data?.erro || 'Erro ao cadastrar usuário', 'error');
     }
   }
 
-  async function handleExcluir(id: number, nome: string) {
-    if (!confirm(`Deseja excluir o usuário ${nome}?`)) return;
-    try {
-      await api.delete(`/usuarios/${id}`);
-      alert('Usuário removido com sucesso!');
-      carregarUsuarios();
-    } catch {
-      alert('Erro ao remover usuário');
-    }
+  function handleExcluir(id: number, nome: string) {
+    setModal({
+      message: `Deseja excluir o usuário ${nome}? Esta ação não pode ser desfeita.`,
+      onConfirm: async () => {
+        setModal(null);
+        try {
+          await api.delete(`/usuarios/${id}`);
+          showToast('Usuário removido com sucesso!', 'success');
+          carregarUsuarios();
+        } catch {
+          showToast('Erro ao remover usuário', 'error');
+        }
+      },
+    });
   }
 
   const usuariosFiltrados = usuarios.filter(u => {
@@ -120,6 +134,7 @@ export default function Usuarios() {
   if (usuarioSelecionado) {
     return (
       <div style={s.page}>
+        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         <div style={s.topBar}>
           <div>
             <button style={s.btnVoltar} onClick={() => { setUsuarioSelecionado(null); setHistoricoUsuario([]); }}>
@@ -228,6 +243,8 @@ export default function Usuarios() {
 
   return (
     <div style={s.page}>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      {modal && <ConfirmModal message={modal.message} onConfirm={modal.onConfirm} onCancel={() => setModal(null)} />}
       <div style={s.topBar}>
         <div>
           <h1 style={s.titulo}>Usuários</h1>

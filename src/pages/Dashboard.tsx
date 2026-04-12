@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import jsPDF from 'jspdf';
+import Toast from '../components/Toast';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
@@ -23,11 +25,17 @@ interface Emprestimo {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [livros, setLivros] = useState<Livro[]>([]);
   const [emprestimos, setEmprestimos] = useState<Emprestimo[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [refreshandoSilencioso, setRefresandoSilencioso] = useState(false);
   const [agora, setAgora] = useState(Date.now());
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  function showToast(message: string, type: 'success' | 'error') {
+    setToast({ message, type });
+  }
 
   const email = localStorage.getItem('admin_email') || '';
   const nome = email.split('@')[0]
@@ -70,7 +78,7 @@ export default function Dashboard() {
       setLivros(resLivros.data);
       setEmprestimos(resEmp.data);
     } catch {
-      if (exibirSpinner) alert('Erro ao carregar dados');
+      if (exibirSpinner) showToast('Erro ao carregar dados', 'error');
     } finally {
       setCarregando(false);
       setRefresandoSilencioso(false);
@@ -169,13 +177,14 @@ export default function Dashboard() {
   }
 
   const stats = [
-    { num: livros.length, label: 'Total de livros', icon: '📚', cor: '#c97b2e' },
-    { num: ativos.length, label: 'Empréstimos ativos', icon: '📋', cor: '#4a7c59' },
-    { num: atrasados.length, label: 'Em atraso', icon: '⚠️', cor: '#b84c2e' },
-    { num: disponiveis.length, label: 'Livros disponíveis', icon: '✓', cor: '#4a7c59' },
+    { num: livros.length, label: 'Total de livros', icon: '📚', cor: '#c97b2e', link: '/livros', filtro: undefined },
+    { num: ativos.length, label: 'Empréstimos ativos', icon: '📋', cor: '#4a7c59', link: '/emprestimos', filtro: 'retirado' },
+    { num: atrasados.length, label: 'Em atraso', icon: '⚠️', cor: '#b84c2e', link: '/emprestimos', filtro: 'atrasado' },
+    { num: disponiveis.length, label: 'Livros disponíveis', icon: '✓', cor: '#4a7c59', link: '/livros', filtro: undefined },
   ];
   return (
     <div style={s.page}>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <div style={s.topBar}>
         <div style={s.welcome}>
           <h1 style={s.titulo}>{saudacao}, {nome}! 👋</h1>
@@ -198,10 +207,12 @@ export default function Dashboard() {
         <>
           <div style={s.statsGrid}>
             {stats.map((st, i) => (
-              <div key={i} style={s.statCard}>
+              <div key={i} style={{ ...s.statCard, cursor: 'pointer' }}
+                onClick={() => navigate(st.link, { state: st.filtro ? { filtro: st.filtro } : undefined })}>
                 <div style={s.statIcon}>{st.icon}</div>
                 <div style={{ ...s.statNum, color: st.cor }}>{st.num}</div>
                 <div style={s.statLabel}>{st.label}</div>
+                <div style={{ fontSize: 11, color: '#c9b99a', marginTop: 6 }}>Ver →</div>
               </div>
             ))}
           </div>

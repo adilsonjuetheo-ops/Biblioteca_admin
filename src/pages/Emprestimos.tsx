@@ -1,13 +1,23 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import api from '../services/api';
+import Toast from '../components/Toast';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function Emprestimos() {
+  const location = useLocation();
   const [emprestimos, setEmprestimos] = useState([]);
   const [carregando, setCarregando] = useState(false);
-  const [filtro, setFiltro] = useState('todos');
+  const [filtro, setFiltro] = useState((location.state as any)?.filtro || 'todos');
   const [buscaUsuario, setBuscaUsuario] = useState('');
   const [filtroAluno, setFiltroAluno] = useState('todos');
   const [filtroTurma, setFiltroTurma] = useState('todos');
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [modal, setModal] = useState<{ message: string; onConfirm: () => void } | null>(null);
+
+  function showToast(message: string, type: 'success' | 'error') {
+    setToast({ message, type });
+  }
 
   useEffect(() => {
     carregarEmprestimos();
@@ -38,34 +48,42 @@ export default function Emprestimos() {
       const { data } = await api.get('/emprestimos');
       setEmprestimos(data);
     } catch {
-      if (mostrarErro) {
-        alert('Erro ao carregar empréstimos');
-      }
+      if (mostrarErro) showToast('Erro ao carregar empréstimos', 'error');
     } finally {
       setCarregando(false);
     }
   }
 
-  async function handleRetirar(id: number) {
-    if (!confirm('Confirmar retirada física do livro?')) return;
-    try {
-      await api.patch(`/emprestimos/${id}/retirar`);
-      alert('Retirada registrada com sucesso!');
-      carregarEmprestimos();
-    } catch {
-      alert('Erro ao registrar retirada');
-    }
+  function handleRetirar(id: number) {
+    setModal({
+      message: 'Confirmar retirada física do livro?',
+      onConfirm: async () => {
+        setModal(null);
+        try {
+          await api.patch(`/emprestimos/${id}/retirar`);
+          showToast('Retirada registrada com sucesso!', 'success');
+          carregarEmprestimos();
+        } catch {
+          showToast('Erro ao registrar retirada', 'error');
+        }
+      },
+    });
   }
 
-  async function handleDevolver(id: number) {
-    if (!confirm('Confirmar devolução do livro?')) return;
-    try {
-      await api.patch(`/emprestimos/${id}/devolver`);
-      alert('Devolução registrada com sucesso!');
-      carregarEmprestimos();
-    } catch {
-      alert('Erro ao registrar devolução');
-    }
+  function handleDevolver(id: number) {
+    setModal({
+      message: 'Confirmar devolução do livro?',
+      onConfirm: async () => {
+        setModal(null);
+        try {
+          await api.patch(`/emprestimos/${id}/devolver`);
+          showToast('Devolução registrada com sucesso!', 'success');
+          carregarEmprestimos();
+        } catch {
+          showToast('Erro ao registrar devolução', 'error');
+        }
+      },
+    });
   }
 
   function limparFiltros() {
@@ -100,8 +118,22 @@ export default function Emprestimos() {
     atrasado: { bg: 'rgba(184,76,46,0.12)', color: '#b84c2e' },
   };
 
+  function isAtrasado(emp: any) {
+    if (emp.status !== 'retirado' && emp.status !== 'reservado') return false;
+    if (!emp.dataDevolucao) return false;
+    return new Date(emp.dataDevolucao) < new Date();
+  }
+
+  function formatarData(data?: string) {
+    if (!data) return '—';
+    return new Date(data).toLocaleDateString('pt-BR');
+  }
+
   return (
     <div style={s.page}>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      {modal && <ConfirmModal message={modal.message} onConfirm={modal.onConfirm} onCancel={() => setModal(null)} />}
+
       <div style={s.topBar}>
         <div>
           <h1 style={s.titulo}>Empréstimos</h1>
@@ -117,22 +149,13 @@ export default function Emprestimos() {
           onChange={e => setBuscaUsuario(e.target.value)}
         />
         <div style={s.selectsRow}>
-          <select
-            style={s.selectFiltro}
-            value={filtroAluno}
-            onChange={e => setFiltroAluno(e.target.value)}
-          >
+          <select style={s.selectFiltro} value={filtroAluno} onChange={e => setFiltroAluno(e.target.value)}>
             <option value="todos">Todos os alunos</option>
             {alunos.map((nome: string) => (
               <option key={nome} value={nome}>{nome}</option>
             ))}
           </select>
-
-          <select
-            style={s.selectFiltro}
-            value={filtroTurma}
-            onChange={e => setFiltroTurma(e.target.value)}
-          >
+          <select style={s.selectFiltro} value={filtroTurma} onChange={e => setFiltroTurma(e.target.value)}>
             <option value="todos">Todas as turmas</option>
             {turmas.map((turma: string) => (
               <option key={turma} value={turma}>{turma}</option>
@@ -164,54 +187,74 @@ export default function Emprestimos() {
           <div style={s.tabelaHeader}>
             <span style={{ flex: 3 }}>Livro</span>
             <span style={{ flex: 2 }}>Aluno</span>
-            <span style={{ flex: 1 }}>Data reserva</span>
+            <span style={{ flex: 1 }}>Reserva</span>
+            <span style={{ flex: 1 }}>Devolução</span>
             <span style={{ flex: 1, textAlign: 'center' }}>Status</span>
             <span style={{ flex: 2, textAlign: 'center' }}>Ações</span>
           </div>
-          {filtrados.map((emp: any) => (
-            <div key={emp.id} style={s.tabelaRow}>
-              <div style={{ flex: 3 }}>
-                <div style={s.livroTitulo}>{emp.livroTitulo || `Livro #${emp.livroId}`}</div>
-                <div style={s.livroAutor}>{emp.livroAutor || '—'}</div>
-              </div>
-              <div style={{ flex: 2 }}>
-                <div style={s.livroTitulo}>{emp.usuarioNome || `Usuário #${emp.usuarioId}`}</div>
-                <div style={s.livroAutor}>
-                  {emp.usuarioTurma ? `Turma ${emp.usuarioTurma}` : ''}
-                  {emp.usuarioMatricula ? ` · Mat. ${emp.usuarioMatricula}` : ''}
+          {filtrados.map((emp: any) => {
+            const atrasado = isAtrasado(emp);
+            return (
+              <div key={emp.id} style={{
+                ...s.tabelaRow,
+                background: atrasado ? 'rgba(184,76,46,0.06)' : undefined,
+              }}>
+                <div style={{ flex: 3 }}>
+                  <div style={s.livroTitulo}>{emp.livroTitulo || `Livro #${emp.livroId}`}</div>
+                  <div style={s.livroAutor}>{emp.livroAutor || '—'}</div>
+                </div>
+                <div style={{ flex: 2 }}>
+                  <div style={s.livroTitulo}>{emp.usuarioNome || `Usuário #${emp.usuarioId}`}</div>
+                  <div style={s.livroAutor}>
+                    {emp.usuarioTurma ? `Turma ${emp.usuarioTurma}` : ''}
+                    {emp.usuarioMatricula ? ` · Mat. ${emp.usuarioMatricula}` : ''}
+                  </div>
+                </div>
+                <span style={{ flex: 1, fontSize: 13, color: '#8a7d68' }}>
+                  {formatarData(emp.dataReserva)}
+                </span>
+                <span style={{
+                  flex: 1, fontSize: 13,
+                  color: atrasado ? '#b84c2e' : emp.status === 'devolvido' ? '#4a7c59' : '#8a7d68',
+                  fontWeight: atrasado ? 700 : 400,
+                }}>
+                  {formatarData(emp.dataDevolucao)}
+                  {atrasado && <span style={{ marginLeft: 4, fontSize: 11 }}>⚠️</span>}
+                </span>
+                <span style={{ flex: 1, textAlign: 'center' }}>
+                  <span style={{
+                    ...s.badge,
+                    background: cores[emp.status]?.bg || 'rgba(138,125,104,0.12)',
+                    color: cores[emp.status]?.color || '#8a7d68',
+                  }}>
+                    {emp.status}
+                  </span>
+                </span>
+                <div style={{ flex: 2, display: 'flex', justifyContent: 'center', gap: 8 }}>
+                  {emp.status === 'reservado' && (
+                    <button style={s.btnRetirar} onClick={() => handleRetirar(emp.id)}>
+                      📦 Confirmar retirada
+                    </button>
+                  )}
+                  {emp.status === 'retirado' && (
+                    <button style={s.btnDevolver} onClick={() => handleDevolver(emp.id)}>
+                      ✓ Devolver
+                    </button>
+                  )}
+                  {emp.status === 'devolvido' && (
+                    <span style={{ fontSize: 12, color: '#8a7d68' }}>
+                      Dev. {formatarData(emp.dataDevolucao)}
+                    </span>
+                  )}
+                  {emp.status === 'atrasado' && (
+                    <button style={s.btnDevolver} onClick={() => handleDevolver(emp.id)}>
+                      ✓ Devolver
+                    </button>
+                  )}
                 </div>
               </div>
-              <span style={{ flex: 1, fontSize: 13, color: '#8a7d68' }}>
-                {emp.dataReserva ? new Date(emp.dataReserva).toLocaleDateString('pt-BR') : '—'}
-              </span>
-              <span style={{ flex: 1, textAlign: 'center' }}>
-                <span style={{
-                  ...s.badge,
-                  background: cores[emp.status]?.bg || 'rgba(138,125,104,0.12)',
-                  color: cores[emp.status]?.color || '#8a7d68',
-                }}>
-                  {emp.status}
-                </span>
-              </span>
-              <div style={{ flex: 2, display: 'flex', justifyContent: 'center', gap: 8 }}>
-                {emp.status === 'reservado' && (
-                  <button style={s.btnRetirar} onClick={() => handleRetirar(emp.id)}>
-                    📦 Confirmar retirada
-                  </button>
-                )}
-                {emp.status === 'retirado' && (
-                  <button style={s.btnDevolver} onClick={() => handleDevolver(emp.id)}>
-                    ✓ Devolver
-                  </button>
-                )}
-                {emp.status === 'devolvido' && (
-                  <span style={{ fontSize: 12, color: '#8a7d68' }}>
-                    Dev. {emp.dataDevolucao ? new Date(emp.dataDevolucao).toLocaleDateString('pt-BR') : '—'}
-                  </span>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

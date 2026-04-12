@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
+import Toast from '../components/Toast';
+import ConfirmModal from '../components/ConfirmModal';
 
 interface Comunicado {
   id: number;
@@ -17,8 +19,14 @@ export default function Comunicados() {
   const [form, setForm] = useState({
     titulo: '', mensagem: '', destinatario: 'todos',
   });
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [modal, setModal] = useState<{ message: string; onConfirm: () => void } | null>(null);
 
   const email = localStorage.getItem('admin_email') || '';
+
+  function showToast(message: string, type: 'success' | 'error') {
+    setToast({ message, type });
+  }
 
   useEffect(() => { carregarComunicados(); }, []);
 
@@ -28,7 +36,7 @@ export default function Comunicados() {
       const { data } = await api.get('/comunicados');
       setComunicados(data);
     } catch {
-      alert('Erro ao carregar comunicados');
+      showToast('Erro ao carregar comunicados', 'error');
     } finally {
       setCarregando(false);
     }
@@ -41,23 +49,29 @@ export default function Comunicados() {
     }
     try {
       await api.post('/comunicados', { ...form, autor: email });
-      alert('Comunicado enviado com sucesso!');
+      showToast('Comunicado enviado com sucesso!', 'success');
       setMostrarForm(false);
       setForm({ titulo: '', mensagem: '', destinatario: 'todos' });
       carregarComunicados();
     } catch {
-      alert('Erro ao enviar comunicado');
+      showToast('Erro ao enviar comunicado', 'error');
     }
   }
 
-  async function handleExcluir(id: number) {
-    if (!confirm('Deseja excluir este comunicado?')) return;
-    try {
-      await api.delete(`/comunicados/${id}`);
-      carregarComunicados();
-    } catch {
-      alert('Erro ao excluir comunicado');
-    }
+  function handleExcluir(id: number) {
+    setModal({
+      message: 'Deseja excluir este comunicado? Esta ação não pode ser desfeita.',
+      onConfirm: async () => {
+        setModal(null);
+        try {
+          await api.delete(`/comunicados/${id}`);
+          showToast('Comunicado excluído com sucesso!', 'success');
+          carregarComunicados();
+        } catch {
+          showToast('Erro ao excluir comunicado', 'error');
+        }
+      },
+    });
   }
 
   const coresDestinatario: any = {
@@ -68,6 +82,8 @@ export default function Comunicados() {
 
   return (
     <div style={s.page}>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      {modal && <ConfirmModal message={modal.message} onConfirm={modal.onConfirm} onCancel={() => setModal(null)} />}
       <div style={s.topBar}>
         <div>
           <h1 style={s.titulo}>Comunicados</h1>

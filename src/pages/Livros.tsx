@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
+import Toast from '../components/Toast';
+import ConfirmModal from '../components/ConfirmModal';
 
 interface Livro {
   id: number;
@@ -19,11 +21,17 @@ export default function Livros() {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [editando, setEditando] = useState<Livro | null>(null);
   const [busca, setBusca] = useState('');
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [modal, setModal] = useState<{ message: string; onConfirm: () => void } | null>(null);
 
- const [form, setForm] = useState({
-  titulo: '', autor: '', isbn: '', genero: '',
-  sinopse: '', capa: '', totalExemplares: 1, disponiveis: 1,
-});
+  const [form, setForm] = useState({
+    titulo: '', autor: '', isbn: '', genero: '',
+    sinopse: '', capa: '', totalExemplares: 1, disponiveis: 1,
+  });
+
+  function showToast(message: string, type: 'success' | 'error') {
+    setToast({ message, type });
+  }
 
   useEffect(() => {
     carregarLivros();
@@ -54,9 +62,7 @@ export default function Livros() {
       const { data } = await api.get('/livros');
       setLivros(data);
     } catch {
-      if (mostrarErro) {
-        alert('Erro ao carregar livros');
-      }
+      if (mostrarErro) showToast('Erro ao carregar livros', 'error');
     } finally {
       setCarregando(false);
     }
@@ -67,17 +73,17 @@ export default function Livros() {
     try {
       if (editando) {
         await api.put(`/livros/${editando.id}`, form);
-        alert('Livro atualizado com sucesso!');
+        showToast('Livro atualizado com sucesso!', 'success');
       } else {
         await api.post('/livros', form);
-        alert('Livro cadastrado com sucesso!');
+        showToast('Livro cadastrado com sucesso!', 'success');
       }
       setMostrarForm(false);
       setEditando(null);
       setForm({ capa: '', titulo: '', autor: '', isbn: '', genero: '', sinopse: '', totalExemplares: 1, disponiveis: 1 });
       carregarLivros();
     } catch {
-      alert('Erro ao salvar livro');
+      showToast('Erro ao salvar livro', 'error');
     }
   }
 
@@ -96,14 +102,20 @@ export default function Livros() {
     setMostrarForm(true);
   }
 
-  async function handleExcluir(livro: Livro) {
-    if (!confirm(`Excluir "${livro.titulo}"? Esta ação não pode ser desfeita.`)) return;
-    try {
-      await api.delete(`/livros/${livro.id}`);
-      carregarLivros();
-    } catch {
-      alert('Erro ao excluir livro');
-    }
+  function handleExcluir(livro: Livro) {
+    setModal({
+      message: `Excluir "${livro.titulo}"? Esta ação não pode ser desfeita.`,
+      onConfirm: async () => {
+        setModal(null);
+        try {
+          await api.delete(`/livros/${livro.id}`);
+          showToast('Livro excluído com sucesso!', 'success');
+          carregarLivros();
+        } catch {
+          showToast('Erro ao excluir livro', 'error');
+        }
+      },
+    });
   }
 
   function handleNovo() {
@@ -119,6 +131,9 @@ export default function Livros() {
 
   return (
     <div style={s.page}>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      {modal && <ConfirmModal message={modal.message} onConfirm={modal.onConfirm} onCancel={() => setModal(null)} />}
+
       <div style={s.topBar}>
         <div>
           <h1 style={s.titulo}>Acervo de Livros</h1>
@@ -181,15 +196,15 @@ export default function Livros() {
               </div>
             </div>
             <div style={s.field}>
-              <label style={s.label}>Sinopse</label>
-              <div style={s.field}>
               <label style={s.label}>URL da capa</label>
               <input style={s.input} placeholder="https://... (link da imagem)"
-               value={form.capa} onChange={e => setForm({ ...form, capa: e.target.value })} />
+                value={form.capa} onChange={e => setForm({ ...form, capa: e.target.value })} />
               <small style={{ fontSize: 11, color: '#8a7d68', marginTop: 4 }}>
-              Cole o link de uma imagem do Google, Open Library ou qualquer URL pública
+                Cole o link de uma imagem do Google, Open Library ou qualquer URL pública
               </small>
-              </div>
+            </div>
+            <div style={s.field}>
+              <label style={s.label}>Sinopse</label>
               <textarea style={{ ...s.input, height: 80, resize: 'vertical' }}
                 placeholder="Breve descrição do livro"
                 value={form.sinopse}
@@ -219,6 +234,7 @@ export default function Livros() {
       ) : (
         <div style={s.tabela}>
           <div style={s.tabelaHeader}>
+            <span style={{ width: 52, flexShrink: 0 }}></span>
             <span style={{ flex: 3 }}>Título / Autor</span>
             <span style={{ flex: 1 }}>Gênero</span>
             <span style={{ flex: 1, textAlign: 'center' }}>Exemplares</span>
@@ -227,6 +243,18 @@ export default function Livros() {
           </div>
           {livrosFiltrados.map(livro => (
             <div key={livro.id} style={s.tabelaRow}>
+              <div style={{ width: 52, flexShrink: 0 }}>
+                {livro.capa ? (
+                  <img
+                    src={livro.capa}
+                    alt={livro.titulo}
+                    style={s.capa}
+                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ) : (
+                  <div style={s.capaPlaceholder}>📖</div>
+                )}
+              </div>
               <div style={{ flex: 3 }}>
                 <div style={s.livroTitulo}>{livro.titulo}</div>
                 <div style={s.livroAutor}>{livro.autor}</div>
@@ -274,8 +302,10 @@ const s: Record<string, React.CSSProperties> = {
   btnCancelar: { background: 'transparent', border: '1px solid #d9cfbe', borderRadius: 10, padding: '10px 20px', fontWeight: 600, fontSize: 14, cursor: 'pointer', color: '#8a7d68' },
   btnSalvar: { background: '#4a7c59', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 24px', fontWeight: 700, fontSize: 14, cursor: 'pointer' },
   tabela: { background: '#fdfaf4', border: '1px solid #d9cfbe', borderRadius: 16, overflow: 'hidden' },
-  tabelaHeader: { display: 'flex', padding: '12px 20px', background: '#f5efe3', borderBottom: '1px solid #d9cfbe', fontSize: 11, fontWeight: 700, color: '#8a7d68', textTransform: 'uppercase', letterSpacing: 0.5 },
-  tabelaRow: { display: 'flex', alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid #f0e8dc' },
+  tabelaHeader: { display: 'flex', alignItems: 'center', padding: '12px 20px', background: '#f5efe3', borderBottom: '1px solid #d9cfbe', fontSize: 11, fontWeight: 700, color: '#8a7d68', textTransform: 'uppercase', letterSpacing: 0.5 },
+  tabelaRow: { display: 'flex', alignItems: 'center', padding: '12px 20px', borderBottom: '1px solid #f0e8dc', gap: 12 },
+  capa: { width: 40, height: 55, objectFit: 'cover', borderRadius: 6, border: '1px solid #d9cfbe', display: 'block' },
+  capaPlaceholder: { width: 40, height: 55, borderRadius: 6, border: '1px solid #d9cfbe', background: '#f5efe3', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 },
   livroTitulo: { fontSize: 14, fontWeight: 700, color: '#1a1208', marginBottom: 2 },
   livroAutor: { fontSize: 12, color: '#8a7d68' },
   badge: { padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700 },
