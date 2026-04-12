@@ -96,6 +96,16 @@ export default function Livros() {
     setMostrarForm(true);
   }
 
+  async function handleExcluir(livro: Livro) {
+    if (!confirm(`Excluir "${livro.titulo}"? Esta ação não pode ser desfeita.`)) return;
+    try {
+      await api.delete(`/livros/${livro.id}`);
+      carregarLivros();
+    } catch {
+      alert('Erro ao excluir livro');
+    }
+  }
+
   function handleNovo() {
     setEditando(null);
     setForm({ capa: '', titulo: '', autor: '', isbn: '', genero: '', sinopse: '', totalExemplares: 1, disponiveis: 1 });
@@ -236,6 +246,7 @@ export default function Livros() {
               </span>
               <div style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: 8 }}>
                 <button style={s.btnEditar} onClick={() => handleEditar(livro)}>✏️ Editar</button>
+                <button style={s.btnExcluir} onClick={() => handleExcluir(livro)}>🗑️ Excluir</button>
               </div>
             </div>
           ))}
@@ -269,6 +280,7 @@ const s: Record<string, React.CSSProperties> = {
   livroAutor: { fontSize: 12, color: '#8a7d68' },
   badge: { padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700 },
   btnEditar: { background: 'rgba(201,123,46,0.12)', color: '#c97b2e', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
+  btnExcluir: { background: 'rgba(184,76,46,0.12)', color: '#b84c2e', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
   loading: { textAlign: 'center', padding: 60, color: '#8a7d68', fontSize: 16 },
   empty: { background: '#fdfaf4', border: '1px dashed #d9cfbe', borderRadius: 16, padding: 60, textAlign: 'center' },
   emptyText: { color: '#8a7d68', fontSize: 16 },
