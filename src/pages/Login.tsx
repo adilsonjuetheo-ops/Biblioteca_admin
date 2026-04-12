@@ -29,8 +29,8 @@ export default function Login() {
     setLoading(true);
     try {
       const { data } = await axios.post(`${API_URL}/usuarios/login`, { email, senha });
-      if (data.perfil !== 'bibliotecario') {
-        setErro('Acesso restrito ao bibliotecário');
+      if (data.perfil !== 'bibliotecario' && data.perfil !== 'coordenacao') {
+        setErro('Acesso restrito ao bibliotecário ou coordenação');
         return;
       }
       localStorage.setItem('admin_token', data.token);
