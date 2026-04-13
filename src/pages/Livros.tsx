@@ -56,13 +56,13 @@ export default function Livros() {
     };
   }, []);
 
-  async function carregarLivros(mostrarErro = true) {
+  async function carregarLivros(exibirSpinner = true) {
     try {
-      setCarregando(true);
+      if (exibirSpinner) setCarregando(true);
       const { data } = await api.get('/livros');
       setLivros(data);
     } catch {
-      if (mostrarErro) showToast('Erro ao carregar livros', 'error');
+      if (exibirSpinner) showToast('Erro ao carregar livros', 'error');
     } finally {
       setCarregando(false);
     }

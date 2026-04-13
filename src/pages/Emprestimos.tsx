@@ -42,13 +42,13 @@ export default function Emprestimos() {
     };
   }, []);
 
-  async function carregarEmprestimos(mostrarErro = true) {
+  async function carregarEmprestimos(exibirSpinner = true) {
     try {
-      setCarregando(true);
+      if (exibirSpinner) setCarregando(true);
       const { data } = await api.get('/emprestimos');
       setEmprestimos(data);
     } catch {
-      if (mostrarErro) showToast('Erro ao carregar empréstimos', 'error');
+      if (exibirSpinner) showToast('Erro ao carregar empréstimos', 'error');
     } finally {
       setCarregando(false);
     }
