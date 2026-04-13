@@ -24,23 +24,21 @@ interface Emprestimo {
   renovado: boolean;
 }
 
+const formVazio = { nome: '', email: '', senha: '', matricula: '', turma: '', perfil: 'aluno' };
+
 export default function Usuarios() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [mostrarForm, setMostrarForm] = useState(false);
+  const [editando, setEditando] = useState<Usuario | null>(null);
   const [busca, setBusca] = useState('');
   const [filtroPerfil, setFiltroPerfil] = useState('todos');
   const [usuarioSelecionado, setUsuarioSelecionado] = useState<Usuario | null>(null);
   const [historicoUsuario, setHistoricoUsuario] = useState<Emprestimo[]>([]);
   const [carregandoHistorico, setCarregandoHistorico] = useState(false);
-
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [modal, setModal] = useState<{ message: string; onConfirm: () => void } | null>(null);
-
-  const [form, setForm] = useState({
-    nome: '', email: '', senha: '',
-    matricula: '', turma: '', perfil: 'aluno',
-  });
+  const [form, setForm] = useState(formVazio);
 
   function showToast(message: string, type: 'success' | 'error') {
     setToast({ message, type });
@@ -65,8 +63,7 @@ export default function Usuarios() {
       setCarregandoHistorico(true);
       setUsuarioSelecionado(usuario);
       const { data } = await api.get('/emprestimos');
-      const emprestimosDoUsuario = data.filter((e: any) => e.usuarioId === usuario.id);
-      setHistoricoUsuario(emprestimosDoUsuario);
+      setHistoricoUsuario(data.filter((e: any) => e.usuarioId === usuario.id));
     } catch {
       showToast('Erro ao carregar histórico', 'error');
     } finally {
@@ -74,19 +71,43 @@ export default function Usuarios() {
     }
   }
 
+  function handleEditar(u: Usuario) {
+    setEditando(u);
+    setForm({ nome: u.nome, email: u.email, senha: '', matricula: u.matricula || '', turma: u.turma || '', perfil: u.perfil });
+    setMostrarForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function fecharForm() {
+    setMostrarForm(false);
+    setEditando(null);
+    setForm(formVazio);
+  }
+
   async function handleSalvar(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.nome || !form.email || !form.senha) {
-      alert('Nome, e-mail e senha são obrigatórios'); return;
+    if (!form.nome || !form.email) {
+      showToast('Nome e e-mail são obrigatórios', 'error');
+      return;
+    }
+    if (!editando && form.senha.length < 6) {
+      showToast('Senha deve ter pelo menos 6 caracteres', 'error');
+      return;
     }
     try {
-      await api.post('/usuarios', form);
-      showToast('Usuário cadastrado com sucesso!', 'success');
-      setMostrarForm(false);
-      setForm({ nome: '', email: '', senha: '', matricula: '', turma: '', perfil: 'aluno' });
+      if (editando) {
+        const payload: any = { nome: form.nome, email: form.email, matricula: form.matricula, turma: form.turma, perfil: form.perfil };
+        if (form.senha.length >= 6) payload.senha = form.senha;
+        await api.put(`/usuarios/${editando.id}`, payload);
+        showToast('Usuário atualizado com sucesso!', 'success');
+      } else {
+        await api.post('/usuarios', form);
+        showToast('Usuário cadastrado com sucesso!', 'success');
+      }
+      fecharForm();
       carregarUsuarios();
     } catch (err: any) {
-      showToast(err.response?.data?.erro || 'Erro ao cadastrar usuário', 'error');
+      showToast(err.response?.data?.erro || 'Erro ao salvar usuário', 'error');
     }
   }
 
@@ -116,7 +137,7 @@ export default function Usuarios() {
 
   const coresPerfil: any = {
     aluno: { bg: 'rgba(74,124,89,0.12)', color: '#4a7c59' },
-        professor: { bg: 'rgba(201,123,46,0.12)', color: '#c97b2e' },
+    professor: { bg: 'rgba(201,123,46,0.12)', color: '#c97b2e' },
     bibliotecario: { bg: 'rgba(74,100,144,0.12)', color: '#4a6490' },
     coordenacao: { bg: 'rgba(184,76,46,0.12)', color: '#b84c2e' },
   };
@@ -190,11 +211,9 @@ export default function Usuarios() {
                         {emp.dataReserva ? new Date(emp.dataReserva).toLocaleDateString('pt-BR') : '—'}
                       </span>
                       <span style={{ flex: 1, textAlign: 'center' }}>
-                        <span style={{
-                          ...s.badge,
-                          background: coresStatus[emp.status]?.bg,
-                          color: coresStatus[emp.status]?.color,
-                        }}>{emp.status}</span>
+                        <span style={{ ...s.badge, background: coresStatus[emp.status]?.bg, color: coresStatus[emp.status]?.color }}>
+                          {emp.status}
+                        </span>
                       </span>
                       <span style={{ flex: 1, textAlign: 'center', fontSize: 13, color: emp.renovado ? '#4a7c59' : '#8a7d68' }}>
                         {emp.renovado ? '✓ Sim' : '✗ Não'}
@@ -204,7 +223,6 @@ export default function Usuarios() {
                 </div>
               </>
             )}
-
             {devolvidos.length > 0 && (
               <>
                 <h2 style={{ ...s.secaoTitulo, marginTop: 24 }}>📚 Histórico de devoluções</h2>
@@ -245,19 +263,20 @@ export default function Usuarios() {
     <div style={s.page}>
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       {modal && <ConfirmModal message={modal.message} onConfirm={modal.onConfirm} onCancel={() => setModal(null)} />}
+
       <div style={s.topBar}>
         <div>
           <h1 style={s.titulo}>Usuários</h1>
           <p style={s.subtitulo}>{usuarios.length} usuários cadastrados</p>
         </div>
-        <button style={s.btnNovo} onClick={() => setMostrarForm(!mostrarForm)}>
+        <button style={s.btnNovo} onClick={() => mostrarForm && !editando ? fecharForm() : (fecharForm(), setMostrarForm(true))}>
           {mostrarForm ? '✕ Fechar' : '+ Cadastrar usuário'}
         </button>
       </div>
 
       {mostrarForm && (
         <div style={s.formCard}>
-          <h2 style={s.formTitulo}>➕ Novo usuário</h2>
+          <h2 style={s.formTitulo}>{editando ? '✏️ Editar usuário' : '➕ Novo usuário'}</h2>
           <form onSubmit={handleSalvar} style={s.form}>
             <div style={s.formGrid}>
               <div style={s.field}>
@@ -271,8 +290,10 @@ export default function Usuarios() {
                   value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
               </div>
               <div style={s.field}>
-                <label style={s.label}>Senha *</label>
-                <input style={s.input} required type="password" placeholder="Mínimo 6 caracteres"
+                <label style={s.label}>{editando ? 'Nova senha (deixe em branco para manter)' : 'Senha *'}</label>
+                <input style={s.input} type="password"
+                  required={!editando}
+                  placeholder={editando ? 'Deixe em branco para não alterar' : 'Mínimo 6 caracteres'}
                   value={form.senha} onChange={e => setForm({ ...form, senha: e.target.value })} />
               </div>
               <div style={s.field}>
@@ -285,7 +306,7 @@ export default function Usuarios() {
                   <option value="coordenacao">Coordenação</option>
                 </select>
               </div>
-              {form.perfil === 'aluno' && (
+              {(form.perfil === 'aluno' || form.perfil === 'professor') && (
                 <>
                   <div style={s.field}>
                     <label style={s.label}>Matrícula</label>
@@ -301,9 +322,10 @@ export default function Usuarios() {
               )}
             </div>
             <div style={s.formBtns}>
-              <button type="button" style={s.btnCancelar}
-                onClick={() => setMostrarForm(false)}>Cancelar</button>
-              <button type="submit" style={s.btnSalvar}>Cadastrar usuário</button>
+              <button type="button" style={s.btnCancelar} onClick={fecharForm}>Cancelar</button>
+              <button type="submit" style={s.btnSalvar}>
+                {editando ? 'Salvar alterações' : 'Cadastrar usuário'}
+              </button>
             </div>
           </form>
         </div>
@@ -335,7 +357,7 @@ export default function Usuarios() {
             <span style={{ flex: 1 }}>Matrícula</span>
             <span style={{ flex: 1 }}>Turma</span>
             <span style={{ flex: 1, textAlign: 'center' }}>Perfil</span>
-            <span style={{ flex: 1, textAlign: 'center' }}>Ações</span>
+            <span style={{ flex: 2, textAlign: 'center' }}>Ações</span>
           </div>
           {usuariosFiltrados.map(u => (
             <div key={u.id} style={s.tabelaRow}>
@@ -354,13 +376,10 @@ export default function Usuarios() {
                   {u.perfil}
                 </span>
               </span>
-              <div style={{ flex: 1, display: 'flex', justifyContent: 'center', gap: 8 }}>
-                <button style={s.btnHistorico} onClick={() => carregarHistorico(u)}>
-                  📋 Histórico
-                </button>
-                <button style={s.btnExcluir} onClick={() => handleExcluir(u.id, u.nome)}>
-                  🗑
-                </button>
+              <div style={{ flex: 2, display: 'flex', justifyContent: 'center', gap: 8 }}>
+                <button style={s.btnHistorico} onClick={() => carregarHistorico(u)}>📋 Histórico</button>
+                <button style={s.btnEditar} onClick={() => handleEditar(u)}>✏️ Editar</button>
+                <button style={s.btnExcluir} onClick={() => handleExcluir(u.id, u.nome)}>🗑</button>
               </div>
             </div>
           ))}
@@ -406,6 +425,7 @@ const s: Record<string, React.CSSProperties> = {
   livroAutor: { fontSize: 12, color: '#8a7d68' },
   badge: { padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700 },
   btnHistorico: { background: 'rgba(201,123,46,0.12)', color: '#c97b2e', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
+  btnEditar: { background: 'rgba(74,100,144,0.12)', color: '#4a6490', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
   btnExcluir: { background: 'rgba(184,76,46,0.12)', color: '#b84c2e', border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 14, cursor: 'pointer' },
   loading: { textAlign: 'center', padding: 60, color: '#8a7d68', fontSize: 16 },
   empty: { background: '#fdfaf4', border: '1px dashed #d9cfbe', borderRadius: 16, padding: 60, textAlign: 'center' },
