@@ -70,6 +70,23 @@ export default function Emprestimos() {
     });
   }
 
+  function handleExcluir(emp: any) {
+    const livroNaoDevolvido = emp.status !== 'devolvido';
+    setModal({
+      message: `Excluir este empréstimo de "${emp.livroTitulo || `Livro #${emp.livroId}`}"?${livroNaoDevolvido ? '\n\nO livro voltará automaticamente ao acervo.' : ''}`,
+      onConfirm: async () => {
+        setModal(null);
+        try {
+          await api.delete(`/emprestimos/${emp.id}`);
+          showToast('Empréstimo excluído com sucesso!', 'success');
+          carregarEmprestimos();
+        } catch {
+          showToast('Erro ao excluir empréstimo', 'error');
+        }
+      },
+    });
+  }
+
   function handleDevolver(id: number) {
     setModal({
       message: 'Confirmar devolução do livro?',
@@ -230,7 +247,7 @@ export default function Emprestimos() {
                     {emp.status}
                   </span>
                 </span>
-                <div style={{ flex: 2, display: 'flex', justifyContent: 'center', gap: 8 }}>
+                <div style={{ flex: 2, display: 'flex', justifyContent: 'center', gap: 8, flexWrap: 'wrap' }}>
                   {emp.status === 'reservado' && (
                     <button style={s.btnRetirar} onClick={() => handleRetirar(emp.id)}>
                       📦 Confirmar retirada
@@ -251,6 +268,9 @@ export default function Emprestimos() {
                       ✓ Devolver
                     </button>
                   )}
+                  <button style={s.btnExcluir} onClick={() => handleExcluir(emp)}>
+                    🗑️
+                  </button>
                 </div>
               </div>
             );
@@ -282,6 +302,7 @@ const s: Record<string, React.CSSProperties> = {
   badge: { padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700 },
   btnRetirar: { background: 'rgba(74,100,144,0.12)', color: '#4a6490', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
   btnDevolver: { background: 'rgba(74,124,89,0.12)', color: '#4a7c59', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' },
+  btnExcluir: { background: 'rgba(184,76,46,0.12)', color: '#b84c2e', border: 'none', borderRadius: 8, padding: '6px 10px', fontSize: 14, cursor: 'pointer' },
   loading: { textAlign: 'center', padding: 60, color: '#8a7d68', fontSize: 16 },
   empty: { background: '#fdfaf4', border: '1px dashed #d9cfbe', borderRadius: 16, padding: 60, textAlign: 'center' },
   emptyText: { color: '#8a7d68', fontSize: 16 },
