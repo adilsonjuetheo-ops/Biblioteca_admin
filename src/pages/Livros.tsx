@@ -13,6 +13,7 @@ interface Livro {
   capa: string;
   totalExemplares: number;
   disponiveis: number;
+  prateleira: string;
 }
 
 export default function Livros() {
@@ -26,7 +27,7 @@ export default function Livros() {
 
   const [form, setForm] = useState({
     titulo: '', autor: '', isbn: '', genero: '',
-    sinopse: '', capa: '', totalExemplares: 1, disponiveis: 1,
+    sinopse: '', capa: '', totalExemplares: 1, disponiveis: 1, prateleira: '',
   });
 
   function showToast(message: string, type: 'success' | 'error') {
@@ -80,7 +81,7 @@ export default function Livros() {
       }
       setMostrarForm(false);
       setEditando(null);
-      setForm({ capa: '', titulo: '', autor: '', isbn: '', genero: '', sinopse: '', totalExemplares: 1, disponiveis: 1 });
+      setForm({ capa: '', titulo: '', autor: '', isbn: '', genero: '', sinopse: '', totalExemplares: 1, disponiveis: 1, prateleira: '' });
       carregarLivros();
     } catch {
       showToast('Erro ao salvar livro', 'error');
@@ -98,6 +99,7 @@ export default function Livros() {
       sinopse: livro.sinopse || '',
       totalExemplares: livro.totalExemplares || 1,
       disponiveis: livro.disponiveis || 1,
+      prateleira: livro.prateleira || '',
     });
     setMostrarForm(true);
   }
@@ -120,7 +122,7 @@ export default function Livros() {
 
   function handleNovo() {
     setEditando(null);
-    setForm({ capa: '', titulo: '', autor: '', isbn: '', genero: '', sinopse: '', totalExemplares: 1, disponiveis: 1 });
+    setForm({ capa: '', titulo: '', autor: '', isbn: '', genero: '', sinopse: '', totalExemplares: 1, disponiveis: 1, prateleira: '' });
     setMostrarForm(true);
   }
 
@@ -194,6 +196,11 @@ export default function Livros() {
                   value={form.disponiveis}
                   onChange={e => setForm({ ...form, disponiveis: Number(e.target.value) })} />
               </div>
+              <div style={s.field}>
+                <label style={s.label}>Prateleira</label>
+                <input style={s.input} placeholder="Ex: A1, B3, Corredor 2..."
+                  value={form.prateleira} onChange={e => setForm({ ...form, prateleira: e.target.value })} />
+              </div>
             </div>
             <div style={s.field}>
               <label style={s.label}>URL da capa</label>
@@ -237,6 +244,7 @@ export default function Livros() {
             <span style={{ width: 52, flexShrink: 0 }}></span>
             <span style={{ flex: 3 }}>Título / Autor</span>
             <span style={{ flex: 1 }}>Gênero</span>
+            <span style={{ flex: 1 }}>Prateleira</span>
             <span style={{ flex: 1, textAlign: 'center' }}>Exemplares</span>
             <span style={{ flex: 1, textAlign: 'center' }}>Disponíveis</span>
             <span style={{ flex: 1, textAlign: 'center' }}>Ações</span>
@@ -260,6 +268,7 @@ export default function Livros() {
                 <div style={s.livroAutor}>{livro.autor}</div>
               </div>
               <span style={{ flex: 1, fontSize: 13, color: '#8a7d68' }}>{livro.genero || '—'}</span>
+              <span style={{ flex: 1, fontSize: 13, color: '#8a7d68' }}>{livro.prateleira || '—'}</span>
               <span style={{ flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 600, color: '#1a1208' }}>
                 {livro.totalExemplares || 1}
               </span>
