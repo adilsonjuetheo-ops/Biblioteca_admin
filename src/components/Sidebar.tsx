@@ -49,15 +49,15 @@ export default function Sidebar() {
 }
 
 const s: Record<string, React.CSSProperties> = {
-  sidebar: { width: 220, height: '100vh', background: '#1a1208', display: 'flex', flexDirection: 'column', padding: '24px 16px', flexShrink: 0, overflow: 'hidden' },
+  sidebar: { width: 220, height: '100vh', background: '#1a1208', display: 'flex', flexDirection: 'column', padding: '24px 16px', flexShrink: 0, overflow: 'hidden', boxSizing: 'border-box' },
   logo: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 40, padding: '0 8px' },
   logoImgWrap: { width: 44, height: 44, borderRadius: 10, background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 4, flexShrink: 0 },
   logoImg: { width: 34, height: 34, objectFit: 'contain' },
   logoTitle: { fontSize: 12, lineHeight: 1.25, fontWeight: 700, color: '#f5efe3' },
   logoSub: { fontSize: 11, color: '#8a7d68', marginTop: 1 },
-  nav: { display: 'flex', flexDirection: 'column', gap: 4, flex: 1 },
+  nav: { display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minHeight: 0, overflowY: 'auto' },
   menuItem: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, border: 'none', background: 'transparent', color: 'rgba(245,239,227,0.5)', fontSize: 14, fontWeight: 500, cursor: 'pointer', width: '100%', textAlign: 'left' },
   menuAtivo: { background: 'rgba(201,123,46,0.15)', color: '#f0a84a' },
   menuIcon: { fontSize: 18, width: 24 },
-  logoutBtn: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(245,239,227,0.1)', background: 'transparent', color: 'rgba(245,239,227,0.4)', fontSize: 14, cursor: 'pointer', width: '100%' },
+  logoutBtn: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(245,239,227,0.1)', background: 'transparent', color: 'rgba(245,239,227,0.4)', fontSize: 14, cursor: 'pointer', width: '100%', flexShrink: 0, marginTop: 8 },
 };
