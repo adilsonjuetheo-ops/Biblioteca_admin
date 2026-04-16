@@ -49,7 +49,7 @@ export default function Sidebar() {
 }
 
 const s: Record<string, React.CSSProperties> = {
-  sidebar: { width: 220, minHeight: '100vh', background: '#1a1208', display: 'flex', flexDirection: 'column', padding: '24px 16px', flexShrink: 0 },
+  sidebar: { width: 220, height: '100vh', background: '#1a1208', display: 'flex', flexDirection: 'column', padding: '24px 16px', flexShrink: 0, position: 'sticky', top: 0 },
   logo: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 40, padding: '0 8px' },
   logoImgWrap: { width: 44, height: 44, borderRadius: 10, background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 4, flexShrink: 0 },
   logoImg: { width: 34, height: 34, objectFit: 'contain' },

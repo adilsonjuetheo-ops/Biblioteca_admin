@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import api from '../services/api';
 import Toast from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
+import Paginacao from '../components/Paginacao';
+
+const POR_PAGINA = 10;
 
 interface Livro {
   id: number;
@@ -24,6 +27,7 @@ export default function Livros() {
   const [busca, setBusca] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [modal, setModal] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const [pagina, setPagina] = useState(1);
 
   const [form, setForm] = useState({
     titulo: '', autor: '', isbn: '', genero: '',
@@ -71,6 +75,14 @@ export default function Livros() {
 
   async function handleSalvar(e: React.FormEvent) {
     e.preventDefault();
+    const tituloNormalizado = form.titulo.trim().toLowerCase();
+    const duplicado = livros.some(l =>
+      l.titulo.trim().toLowerCase() === tituloNormalizado && l.id !== editando?.id
+    );
+    if (duplicado) {
+      showToast('Já existe um livro com esse título no acervo.', 'error');
+      return;
+    }
     try {
       if (editando) {
         await api.put(`/livros/${editando.id}`, form);
@@ -130,6 +142,8 @@ export default function Livros() {
     l.titulo?.toLowerCase().includes(busca.toLowerCase()) ||
     l.autor?.toLowerCase().includes(busca.toLowerCase())
   );
+  const totalPaginas = Math.ceil(livrosFiltrados.length / POR_PAGINA);
+  const livrosPaginados = livrosFiltrados.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
 
   return (
     <div style={s.page}>
@@ -145,7 +159,7 @@ export default function Livros() {
       </div>
 
       <input style={s.busca} placeholder="🔍  Buscar por título ou autor..."
-        value={busca} onChange={e => setBusca(e.target.value)} />
+        value={busca} onChange={e => { setBusca(e.target.value); setPagina(1); }} />
 
       {mostrarForm && (
         <div style={s.formCard}>
@@ -249,7 +263,7 @@ export default function Livros() {
             <span style={{ flex: 1, textAlign: 'center' }}>Disponíveis</span>
             <span style={{ flex: 1, textAlign: 'center' }}>Ações</span>
           </div>
-          {livrosFiltrados.map(livro => (
+          {livrosPaginados.map(livro => (
             <div key={livro.id} style={s.tabelaRow}>
               <div style={{ width: 52, flexShrink: 0 }}>
                 {livro.capa ? (
@@ -289,6 +303,12 @@ export default function Livros() {
           ))}
         </div>
       )}
+      <Paginacao
+        total={livrosFiltrados.length}
+        porPagina={POR_PAGINA}
+        paginaAtual={pagina}
+        onChange={p => { setPagina(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+      />
     </div>
   );
 }

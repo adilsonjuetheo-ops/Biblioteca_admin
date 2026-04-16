@@ -3,6 +3,9 @@ import { useLocation } from 'react-router-dom';
 import api from '../services/api';
 import Toast from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
+import Paginacao from '../components/Paginacao';
+
+const POR_PAGINA = 10;
 
 export default function Emprestimos() {
   const location = useLocation();
@@ -14,6 +17,7 @@ export default function Emprestimos() {
   const [filtroTurma, setFiltroTurma] = useState('todos');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [modal, setModal] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const [pagina, setPagina] = useState(1);
 
   function showToast(message: string, type: 'success' | 'error') {
     setToast({ message, type });
@@ -108,6 +112,7 @@ export default function Emprestimos() {
     setFiltro('todos');
     setFiltroAluno('todos');
     setFiltroTurma('todos');
+    setPagina(1);
   }
 
   const alunos = Array.from(
@@ -127,6 +132,7 @@ export default function Emprestimos() {
       e.usuarioMatricula?.toLowerCase().includes(buscaUsuario.toLowerCase());
     return filtroOk && alunoOk && turmaOk && usuarioOk;
   });
+  const filtradosPaginados = filtrados.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
 
   const cores: any = {
     reservado: { bg: 'rgba(201,123,46,0.12)', color: '#c97b2e' },
@@ -163,7 +169,7 @@ export default function Emprestimos() {
           style={s.busca}
           placeholder="👤 Buscar usuário por nome ou matrícula..."
           value={buscaUsuario}
-          onChange={e => setBuscaUsuario(e.target.value)}
+          onChange={e => { setBuscaUsuario(e.target.value); setPagina(1); }}
         />
         <div style={s.selectsRow}>
           <select style={s.selectFiltro} value={filtroAluno} onChange={e => setFiltroAluno(e.target.value)}>
@@ -183,7 +189,7 @@ export default function Emprestimos() {
           {['todos', 'reservado', 'retirado', 'atrasado', 'devolvido'].map(f => (
             <button key={f}
               style={{ ...s.filtroBtn, ...(filtro === f ? s.filtroAtivo : {}) }}
-              onClick={() => setFiltro(f)}>
+              onClick={() => { setFiltro(f); setPagina(1); }}>
               {f.charAt(0).toUpperCase() + f.slice(1)}
             </button>
           ))}
@@ -209,7 +215,7 @@ export default function Emprestimos() {
             <span style={{ flex: 1, textAlign: 'center' }}>Status</span>
             <span style={{ flex: 2, textAlign: 'center' }}>Ações</span>
           </div>
-          {filtrados.map((emp: any) => {
+          {filtradosPaginados.map((emp: any) => {
             const atrasado = isAtrasado(emp);
             return (
               <div key={emp.id} style={{
@@ -277,6 +283,12 @@ export default function Emprestimos() {
           })}
         </div>
       )}
+      <Paginacao
+        total={filtrados.length}
+        porPagina={POR_PAGINA}
+        paginaAtual={pagina}
+        onChange={p => { setPagina(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+      />
     </div>
   );
 }

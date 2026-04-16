@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import api from '../services/api';
 import Toast from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
+import Paginacao from '../components/Paginacao';
+
+const POR_PAGINA = 10;
 
 interface Usuario {
   id: number;
@@ -38,6 +41,7 @@ export default function Usuarios() {
   const [carregandoHistorico, setCarregandoHistorico] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [modal, setModal] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const [pagina, setPagina] = useState(1);
   const [form, setForm] = useState(formVazio);
 
   function showToast(message: string, type: 'success' | 'error') {
@@ -134,6 +138,7 @@ export default function Usuarios() {
     const perfilOk = filtroPerfil === 'todos' || u.perfil === filtroPerfil;
     return textoOk && perfilOk;
   });
+  const usuariosPaginados = usuariosFiltrados.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
 
   const coresPerfil: any = {
     aluno: { bg: 'rgba(74,124,89,0.12)', color: '#4a7c59' },
@@ -333,11 +338,11 @@ export default function Usuarios() {
 
       <div style={s.filtros}>
         <input style={s.busca} placeholder="🔍  Buscar por nome, e-mail ou matrícula..."
-          value={busca} onChange={e => setBusca(e.target.value)} />
+          value={busca} onChange={e => { setBusca(e.target.value); setPagina(1); }} />
         <div style={s.filtroRow}>
           {['todos', 'aluno', 'professor', 'bibliotecario', 'coordenacao'].map(p => (
             <button key={p} style={{ ...s.filtroBtn, ...(filtroPerfil === p ? s.filtroAtivo : {}) }}
-              onClick={() => setFiltroPerfil(p)}>
+              onClick={() => { setFiltroPerfil(p); setPagina(1); }}>
               {p === 'todos' ? 'Todos' : p.charAt(0).toUpperCase() + p.slice(1)}
             </button>
           ))}
@@ -359,7 +364,7 @@ export default function Usuarios() {
             <span style={{ flex: 1, textAlign: 'center' }}>Perfil</span>
             <span style={{ flex: 2, textAlign: 'center' }}>Ações</span>
           </div>
-          {usuariosFiltrados.map(u => (
+          {usuariosPaginados.map(u => (
             <div key={u.id} style={s.tabelaRow}>
               <div style={{ flex: 3 }}>
                 <div style={s.userNome}>{u.nome}</div>
@@ -385,6 +390,12 @@ export default function Usuarios() {
           ))}
         </div>
       )}
+      <Paginacao
+        total={usuariosFiltrados.length}
+        porPagina={POR_PAGINA}
+        paginaAtual={pagina}
+        onChange={p => { setPagina(p); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+      />
     </div>
   );
 }
