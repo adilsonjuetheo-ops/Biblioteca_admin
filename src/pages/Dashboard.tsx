@@ -103,6 +103,18 @@ export default function Dashboard() {
 
   const maiorTotalEmprestimos = livrosMaisEmprestados[0]?.total || 1;
 
+  const anoAtual = new Date().getFullYear();
+  const nomesMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  const emprestimosporMes = nomesMeses.map((mes, i) => ({
+    mes,
+    total: (emprestimos as any[]).filter(e => {
+      if (!e.dataReserva) return false;
+      const d = new Date(e.dataReserva);
+      return d.getFullYear() === anoAtual && d.getMonth() === i;
+    }).length,
+  }));
+  const maxPorMes = Math.max(...emprestimosporMes.map(m => m.total), 1);
+
   function formatarData(data?: string) {
     if (!data) return '—';
     return new Date(data).toLocaleDateString('pt-BR');
@@ -282,6 +294,29 @@ export default function Dashboard() {
               </div>
             )}
           </div>
+
+          <div style={{ ...s.card, marginTop: 20 }}>
+            <h2 style={s.cardTitulo}>📈 Empréstimos por mês — {anoAtual}</h2>
+            {emprestimos.length === 0 ? (
+              <p style={s.empty}>Nenhum empréstimo registrado para gerar o gráfico</p>
+            ) : (
+              <div style={s.graficoWrap}>
+                {emprestimosporMes.map(({ mes, total }) => (
+                  <div key={mes} style={s.graficoColuna}>
+                    <span style={s.graficoValor}>{total > 0 ? total : ''}</span>
+                    <div style={s.graficoBarra}>
+                      <div style={{
+                        ...s.graficoBarraFill,
+                        height: `${(total / maxPorMes) * 100}%`,
+                        opacity: total === 0 ? 0.2 : 1,
+                      }} />
+                    </div>
+                    <span style={s.graficoMes}>{mes}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>
@@ -324,4 +359,10 @@ const s: Record<string, React.CSSProperties> = {
   rankingBar: { height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, #c97b2e 0%, #4a7c59 100%)' },
   loading: { textAlign: 'center', padding: 60, color: '#8a7d68', fontSize: 16 },
   empty: { color: '#8a7d68', fontSize: 14, textAlign: 'center', marginTop: 20 },
+  graficoWrap: { display: 'flex', alignItems: 'flex-end', gap: 8, height: 180, paddingTop: 24 },
+  graficoColuna: { display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, height: '100%' },
+  graficoValor: { fontSize: 11, fontWeight: 700, color: '#c97b2e', marginBottom: 4, minHeight: 16 },
+  graficoBarra: { flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end', background: '#f0e8dc', borderRadius: 6, overflow: 'hidden' },
+  graficoBarraFill: { width: '100%', background: 'linear-gradient(180deg, #c97b2e 0%, #4a7c59 100%)', borderRadius: 6, transition: 'height 0.4s ease' },
+  graficoMes: { fontSize: 11, color: '#8a7d68', marginTop: 6, fontWeight: 600 },
 };
