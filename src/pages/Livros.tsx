@@ -186,15 +186,28 @@ export default function Livros() {
                 <select style={s.input}
                   value={form.genero} onChange={e => setForm({ ...form, genero: e.target.value })}>
                   <option value="">Selecione...</option>
-                  <option>Romance</option>
-                  <option>Literatura Brasileira</option>
-                  <option>Ficção Científica</option>
                   <option>Aventura</option>
-                  <option>Poesia</option>
-                  <option>História</option>
-                  <option>Filosofia</option>
                   <option>Biografia</option>
+                  <option>Conto</option>
+                  <option>Crônica</option>
                   <option>Didático</option>
+                  <option>Drama</option>
+                  <option>Fábula</option>
+                  <option>Fantasia</option>
+                  <option>Ficção Científica</option>
+                  <option>Filosofia</option>
+                  <option>História</option>
+                  <option>Horror</option>
+                  <option>Humor</option>
+                  <option>Infanto-Juvenil</option>
+                  <option>Literatura Brasileira</option>
+                  <option>Literatura Estrangeira</option>
+                  <option>Mangá</option>
+                  <option>Mistério</option>
+                  <option>Poesia</option>
+                  <option>Religião</option>
+                  <option>Romance</option>
+                  <option>Suspense</option>
                   <option>Outro</option>
                 </select>
               </div>
