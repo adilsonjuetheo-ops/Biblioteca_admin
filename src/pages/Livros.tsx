@@ -25,6 +25,30 @@ interface Sugestao {
   isbn: string;
   sinopse: string;
   capa: string;
+  genero: string;
+}
+
+function mapearGenero(categories: string[]): string {
+  const texto = categories.join(' ').toLowerCase();
+  if (texto.includes('biography') || texto.includes('autobio')) return 'Biografia';
+  if (texto.includes('science fiction') || texto.includes('sci-fi') || texto.includes('ficção')) return 'Ficção Científica';
+  if (texto.includes('fantasy') || texto.includes('fantasia')) return 'Fantasia';
+  if (texto.includes('horror')) return 'Horror';
+  if (texto.includes('mystery') || texto.includes('detective') || texto.includes('mistério')) return 'Mistério';
+  if (texto.includes('suspense') || texto.includes('thriller')) return 'Suspense';
+  if (texto.includes('adventure') || texto.includes('aventura')) return 'Aventura';
+  if (texto.includes('humor') || texto.includes('comedy') || texto.includes('comic')) return 'Humor';
+  if (texto.includes('poetry') || texto.includes('poesia') || texto.includes('poesia')) return 'Poesia';
+  if (texto.includes('philosophy') || texto.includes('filosofia')) return 'Filosofia';
+  if (texto.includes('history') || texto.includes('história') || texto.includes('historia')) return 'História';
+  if (texto.includes('religion') || texto.includes('religious') || texto.includes('religião')) return 'Religião';
+  if (texto.includes('drama')) return 'Drama';
+  if (texto.includes('juvenile') || texto.includes('children') || texto.includes('young adult') || texto.includes('infantil')) return 'Infanto-Juvenil';
+  if (texto.includes('manga') || texto.includes('graphic novel') || texto.includes('comics')) return 'Mangá';
+  if (texto.includes('education') || texto.includes('textbook') || texto.includes('didático')) return 'Didático';
+  if (texto.includes('romance') || texto.includes('love') || texto.includes('fiction')) return 'Romance';
+  if (texto.includes('short stor') || texto.includes('conto')) return 'Conto';
+  return '';
 }
 
 const FORM_VAZIO = {
@@ -104,6 +128,7 @@ export default function Livros() {
             sinopse: v.description || '',
             isbn,
             capa: v.imageLinks?.thumbnail?.replace('http://', 'https://') || '',
+            genero: mapearGenero(v.categories || []),
           };
         });
         setSugestoes(items);
@@ -125,6 +150,7 @@ export default function Livros() {
       isbn: sug.isbn || prev.isbn,
       sinopse: sug.sinopse || prev.sinopse,
       capa: sug.capa || prev.capa,
+      genero: sug.genero || prev.genero,
     }));
     setMostrarSugestoes(false);
     setSugestoes([]);
