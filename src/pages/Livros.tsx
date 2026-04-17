@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import Toast from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
@@ -19,6 +19,19 @@ interface Livro {
   prateleira: string;
 }
 
+interface Sugestao {
+  titulo: string;
+  autor: string;
+  isbn: string;
+  sinopse: string;
+  capa: string;
+}
+
+const FORM_VAZIO = {
+  capa: '', titulo: '', autor: '', isbn: '', genero: '',
+  sinopse: '', totalExemplares: 1, disponiveis: 1, prateleira: '',
+};
+
 export default function Livros() {
   const [livros, setLivros] = useState<Livro[]>([]);
   const [carregando, setCarregando] = useState(false);
@@ -28,11 +41,13 @@ export default function Livros() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [modal, setModal] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [pagina, setPagina] = useState(1);
+  const [form, setForm] = useState({ ...FORM_VAZIO });
 
-  const [form, setForm] = useState({
-    titulo: '', autor: '', isbn: '', genero: '',
-    sinopse: '', capa: '', totalExemplares: 1, disponiveis: 1, prateleira: '',
-  });
+  const [sugestoes, setSugestoes] = useState<Sugestao[]>([]);
+  const [buscandoLivro, setBuscandoLivro] = useState(false);
+  const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
+  const [tituloDigitado, setTituloDigitado] = useState(false);
+  const tituloWrapRef = useRef<HTMLDivElement>(null);
 
   function showToast(message: string, type: 'success' | 'error') {
     setToast({ message, type });
@@ -40,26 +55,81 @@ export default function Livros() {
 
   useEffect(() => {
     carregarLivros();
-
-    const refreshInterval = setInterval(() => {
-      carregarLivros(false);
-    }, 15000);
-
+    const refreshInterval = setInterval(() => carregarLivros(false), 15000);
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        carregarLivros(false);
-      }
+      if (document.visibilityState === 'visible') carregarLivros(false);
     };
-
     window.addEventListener('focus', handleVisibility);
     document.addEventListener('visibilitychange', handleVisibility);
-
     return () => {
       clearInterval(refreshInterval);
       window.removeEventListener('focus', handleVisibility);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, []);
+
+  // Fecha sugestões ao clicar fora
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (tituloWrapRef.current && !tituloWrapRef.current.contains(e.target as Node)) {
+        setMostrarSugestoes(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Busca Google Books com debounce de 700ms
+  useEffect(() => {
+    if (!tituloDigitado || form.titulo.length < 3) {
+      setSugestoes([]);
+      setMostrarSugestoes(false);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setBuscandoLivro(true);
+      try {
+        const resp = await fetch(
+          `https://www.googleapis.com/books/v1/volumes?q=intitle:${encodeURIComponent(form.titulo)}&maxResults=6`
+        );
+        const data = await resp.json();
+        const items: Sugestao[] = (data.items || []).map((item: any) => {
+          const v = item.volumeInfo;
+          const isbn =
+            (v.industryIdentifiers || []).find((id: any) => id.type === 'ISBN_13')?.identifier ||
+            (v.industryIdentifiers || []).find((id: any) => id.type === 'ISBN_10')?.identifier || '';
+          return {
+            titulo: v.title || '',
+            autor: (v.authors || []).join(', '),
+            sinopse: v.description || '',
+            isbn,
+            capa: v.imageLinks?.thumbnail?.replace('http://', 'https://') || '',
+          };
+        });
+        setSugestoes(items);
+        setMostrarSugestoes(items.length > 0);
+      } catch {
+        // silently fail
+      } finally {
+        setBuscandoLivro(false);
+      }
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [form.titulo, tituloDigitado]);
+
+  function selecionarSugestao(sug: Sugestao) {
+    setForm(prev => ({
+      ...prev,
+      titulo: sug.titulo || prev.titulo,
+      autor: sug.autor || prev.autor,
+      isbn: sug.isbn || prev.isbn,
+      sinopse: sug.sinopse || prev.sinopse,
+      capa: sug.capa || prev.capa,
+    }));
+    setMostrarSugestoes(false);
+    setSugestoes([]);
+    setTituloDigitado(false);
+  }
 
   async function carregarLivros(exibirSpinner = true) {
     try {
@@ -93,7 +163,8 @@ export default function Livros() {
       }
       setMostrarForm(false);
       setEditando(null);
-      setForm({ capa: '', titulo: '', autor: '', isbn: '', genero: '', sinopse: '', totalExemplares: 1, disponiveis: 1, prateleira: '' });
+      setForm({ ...FORM_VAZIO });
+      setTituloDigitado(false);
       carregarLivros();
     } catch {
       showToast('Erro ao salvar livro', 'error');
@@ -113,6 +184,7 @@ export default function Livros() {
       disponiveis: livro.disponiveis || 1,
       prateleira: livro.prateleira || '',
     });
+    setTituloDigitado(false);
     setMostrarForm(true);
   }
 
@@ -134,7 +206,8 @@ export default function Livros() {
 
   function handleNovo() {
     setEditando(null);
-    setForm({ capa: '', titulo: '', autor: '', isbn: '', genero: '', sinopse: '', totalExemplares: 1, disponiveis: 1, prateleira: '' });
+    setForm({ ...FORM_VAZIO });
+    setTituloDigitado(false);
     setMostrarForm(true);
   }
 
@@ -142,7 +215,6 @@ export default function Livros() {
     l.titulo?.toLowerCase().includes(busca.toLowerCase()) ||
     l.autor?.toLowerCase().includes(busca.toLowerCase())
   );
-  const totalPaginas = Math.ceil(livrosFiltrados.length / POR_PAGINA);
   const livrosPaginados = livrosFiltrados.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
 
   return (
@@ -166,11 +238,64 @@ export default function Livros() {
           <h2 style={s.formTitulo}>{editando ? '✏️ Editar livro' : '➕ Novo livro'}</h2>
           <form onSubmit={handleSalvar} style={s.form}>
             <div style={s.formGrid}>
-              <div style={s.field}>
-                <label style={s.label}>Título *</label>
-                <input style={s.input} required placeholder="Título do livro"
-                  value={form.titulo} onChange={e => setForm({ ...form, titulo: e.target.value })} />
+
+              {/* Campo Título com busca automática */}
+              <div style={s.field} ref={tituloWrapRef}>
+                <label style={s.label}>
+                  Título *
+                  {buscandoLivro && (
+                    <span style={s.buscandoTag}>🔍 buscando...</span>
+                  )}
+                  {!editando && !buscandoLivro && form.titulo.length >= 3 && tituloDigitado && (
+                    <span style={s.dicaTag}>↓ selecione uma sugestão abaixo</span>
+                  )}
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    style={s.input}
+                    required
+                    placeholder="Digite o título para buscar automaticamente..."
+                    value={form.titulo}
+                    onChange={e => {
+                      setTituloDigitado(true);
+                      setForm({ ...form, titulo: e.target.value });
+                    }}
+                  />
+                  {mostrarSugestoes && (
+                    <div style={s.sugestoesList}>
+                      <div style={s.sugestoesHeader}>
+                        Resultados do Google Books — clique para preencher o formulário
+                      </div>
+                      {sugestoes.map((sug, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          style={s.sugestaoItem}
+                          onClick={() => selecionarSugestao(sug)}
+                        >
+                          {sug.capa ? (
+                            <img src={sug.capa} alt="" style={s.sugestaoCapa}
+                              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          ) : (
+                            <div style={s.sugestaoCapaPlaceholder}>📖</div>
+                          )}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={s.sugestaoTitulo}>{sug.titulo}</div>
+                            <div style={s.sugestaoAutor}>{sug.autor || 'Autor desconhecido'}</div>
+                            {sug.sinopse && (
+                              <div style={s.sugestaoSinopse}>
+                                {sug.sinopse.slice(0, 100)}...
+                              </div>
+                            )}
+                          </div>
+                          <span style={s.sugestaoBtn}>Usar</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
+
               <div style={s.field}>
                 <label style={s.label}>Autor *</label>
                 <input style={s.input} required placeholder="Nome do autor"
@@ -231,16 +356,17 @@ export default function Livros() {
             </div>
             <div style={s.field}>
               <label style={s.label}>URL da capa</label>
-              <input style={s.input} placeholder="https://... (link da imagem)"
+              <input style={s.input} placeholder="https://... (preenchido automaticamente ou cole um link)"
                 value={form.capa} onChange={e => setForm({ ...form, capa: e.target.value })} />
-              <small style={{ fontSize: 11, color: '#8a7d68', marginTop: 4 }}>
-                Cole o link de uma imagem do Google, Open Library ou qualquer URL pública
-              </small>
+              {form.capa && (
+                <img src={form.capa} alt="Pré-visualização da capa" style={s.capaPreview}
+                  onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              )}
             </div>
             <div style={s.field}>
               <label style={s.label}>Sinopse</label>
-              <textarea style={{ ...s.input, height: 80, resize: 'vertical' }}
-                placeholder="Breve descrição do livro"
+              <textarea style={{ ...s.input, height: 100, resize: 'vertical' }}
+                placeholder="Preenchida automaticamente ou escreva aqui"
                 value={form.sinopse}
                 onChange={e => setForm({ ...form, sinopse: e.target.value })} />
             </div>
@@ -280,12 +406,8 @@ export default function Livros() {
             <div key={livro.id} style={s.tabelaRow}>
               <div style={{ width: 52, flexShrink: 0 }}>
                 {livro.capa ? (
-                  <img
-                    src={livro.capa}
-                    alt={livro.titulo}
-                    style={s.capa}
-                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                  />
+                  <img src={livro.capa} alt={livro.titulo} style={s.capa}
+                    onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                 ) : (
                   <div style={s.capaPlaceholder}>📖</div>
                 )}
@@ -338,8 +460,38 @@ const s: Record<string, React.CSSProperties> = {
   form: { display: 'flex', flexDirection: 'column', gap: 16 },
   formGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 },
   field: { display: 'flex', flexDirection: 'column', gap: 6 },
-  label: { fontSize: 12, fontWeight: 700, color: '#8a7d68', textTransform: 'uppercase', letterSpacing: 0.5 },
+  label: { fontSize: 12, fontWeight: 700, color: '#8a7d68', textTransform: 'uppercase', letterSpacing: 0.5, display: 'flex', alignItems: 'center', gap: 8 },
+  buscandoTag: { fontSize: 11, color: '#c97b2e', fontWeight: 600, textTransform: 'none', letterSpacing: 0 },
+  dicaTag: { fontSize: 11, color: '#4a7c59', fontWeight: 600, textTransform: 'none', letterSpacing: 0 },
   input: { height: 44, borderRadius: 10, border: '1px solid #d9cfbe', background: '#f5efe3', padding: '0 14px', fontSize: 14, color: '#1a1208', outline: 'none', width: '100%', boxSizing: 'border-box' },
+  sugestoesList: {
+    position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+    background: '#fdfaf4', border: '1px solid #d9cfbe', borderRadius: 12,
+    boxShadow: '0 8px 32px rgba(26,18,8,0.12)', marginTop: 4,
+    maxHeight: 360, overflowY: 'auto',
+  },
+  sugestoesHeader: {
+    padding: '10px 14px', fontSize: 11, fontWeight: 700, color: '#8a7d68',
+    textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: '1px solid #f0e8dc',
+  },
+  sugestaoItem: {
+    display: 'flex', alignItems: 'center', gap: 12,
+    width: '100%', padding: '12px 14px', background: 'none', border: 'none',
+    borderBottom: '1px solid #f0e8dc', cursor: 'pointer', textAlign: 'left',
+  },
+  sugestaoCapa: { width: 36, height: 50, objectFit: 'cover', borderRadius: 4, flexShrink: 0 },
+  sugestaoCapaPlaceholder: {
+    width: 36, height: 50, borderRadius: 4, background: '#f5efe3',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0,
+  },
+  sugestaoTitulo: { fontSize: 13, fontWeight: 700, color: '#1a1208', marginBottom: 2 },
+  sugestaoAutor: { fontSize: 12, color: '#8a7d68', marginBottom: 2 },
+  sugestaoSinopse: { fontSize: 11, color: '#a89880', lineHeight: 1.4 },
+  sugestaoBtn: {
+    flexShrink: 0, fontSize: 12, fontWeight: 700, color: '#c97b2e',
+    background: 'rgba(201,123,46,0.1)', borderRadius: 8, padding: '4px 10px',
+  },
+  capaPreview: { width: 60, height: 84, objectFit: 'cover', borderRadius: 8, border: '1px solid #d9cfbe', marginTop: 8 },
   formBtns: { display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 8 },
   btnCancelar: { background: 'transparent', border: '1px solid #d9cfbe', borderRadius: 10, padding: '10px 20px', fontWeight: 600, fontSize: 14, cursor: 'pointer', color: '#8a7d68' },
   btnSalvar: { background: '#4a7c59', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 24px', fontWeight: 700, fontSize: 14, cursor: 'pointer' },
