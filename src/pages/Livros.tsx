@@ -95,6 +95,7 @@ export default function Livros() {
   const [buscandoLivro, setBuscandoLivro] = useState(false);
   const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
   const [tituloDigitado, setTituloDigitado] = useState(false);
+  const [erroBuscaLivro, setErroBuscaLivro] = useState(false);
   const tituloWrapRef = useRef<HTMLDivElement>(null);
 
   function showToast(message: string, type: 'success' | 'error') {
@@ -132,15 +133,19 @@ export default function Livros() {
     if (!tituloDigitado || form.titulo.length < 3) {
       setSugestoes([]);
       setMostrarSugestoes(false);
+      setErroBuscaLivro(false);
       return;
     }
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       setBuscandoLivro(true);
+      setErroBuscaLivro(false);
       try {
         const params = new URLSearchParams({
-          q: `intitle:${form.titulo.trim()}`,
+          q: form.titulo.trim(),
           maxResults: '6',
+          orderBy: 'relevance',
+          printType: 'books',
         });
         const resp = await fetch(`https://www.googleapis.com/books/v1/volumes?${params.toString()}`, {
           signal: controller.signal,
@@ -169,6 +174,7 @@ export default function Livros() {
         if (error instanceof DOMException && error.name === 'AbortError') return;
         setSugestoes([]);
         setMostrarSugestoes(false);
+        setErroBuscaLivro(true);
       } finally {
         if (!controller.signal.aborted) {
           setBuscandoLivro(false);
@@ -194,6 +200,7 @@ export default function Livros() {
     setMostrarSugestoes(false);
     setSugestoes([]);
     setTituloDigitado(false);
+    setErroBuscaLivro(false);
   }
 
   async function carregarLivros(exibirSpinner = true) {
@@ -273,6 +280,7 @@ export default function Livros() {
     setEditando(null);
     setForm({ ...FORM_VAZIO });
     setTituloDigitado(false);
+    setErroBuscaLivro(false);
     setMostrarForm(true);
   }
 
@@ -311,8 +319,14 @@ export default function Livros() {
                   {buscandoLivro && (
                     <span style={s.buscandoTag}>🔍 buscando...</span>
                   )}
-                  {!editando && !buscandoLivro && form.titulo.length >= 3 && tituloDigitado && (
+                  {!editando && !buscandoLivro && mostrarSugestoes && sugestoes.length > 0 && (
                     <span style={s.dicaTag}>↓ selecione uma sugestão abaixo</span>
+                  )}
+                  {!editando && !buscandoLivro && tituloDigitado && form.titulo.length >= 3 && !mostrarSugestoes && sugestoes.length === 0 && !erroBuscaLivro && (
+                    <span style={s.dicaTag}>Nenhuma sugestão encontrada</span>
+                  )}
+                  {!editando && !buscandoLivro && erroBuscaLivro && (
+                    <span style={s.erroTag}>Não foi possível buscar sugestões</span>
                   )}
                 </label>
                 <div style={{ position: 'relative' }}>
