@@ -67,6 +67,17 @@ export default function Usuarios() {
     try {
       setCarregandoHistorico(true);
       setUsuarioSelecionado(usuario);
+      try {
+        const { data } = await api.get(`/usuarios/${usuario.id}/emprestimos`);
+        setHistoricoUsuario(data);
+        return;
+      } catch (err: any) {
+        const status = err?.response?.status;
+        if (status && status !== 404 && status !== 403) {
+          throw err;
+        }
+      }
+
       let emprestimos = historicoCacheRef.current;
       if (!emprestimos) {
         const { data } = await api.get('/emprestimos');

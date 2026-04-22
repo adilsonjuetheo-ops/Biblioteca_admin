@@ -22,7 +22,24 @@ interface Emprestimo {
   livroTitulo?: string;
   usuarioNome?: string;
   dataReserva?: string;
+  dataRetirada?: string;
   dataDevolucao?: string;
+}
+
+interface DashboardResumoResponse {
+  resumo?: {
+    totalLivros?: number;
+    livrosDisponiveis?: number;
+    emprestimosAtivos?: number;
+    emprestimosAtrasados?: number;
+    emprestimosDevolvidos?: number;
+  };
+  ultimosEmprestimos?: Emprestimo[];
+  livrosMaisEmprestados?: Array<{
+    id?: number;
+    titulo?: string;
+    total?: number;
+  }>;
 }
 
 export default function Dashboard() {
@@ -64,6 +81,27 @@ export default function Dashboard() {
   async function carregarDados(exibirSpinner = true) {
     if (exibirSpinner) { setCarregando(true); } else { setRefresandoSilencioso(true); }
     try {
+      try {
+        const { data } = await api.get<DashboardResumoResponse>('/dashboard/resumo');
+        if (!data?.resumo) throw new Error('Resumo indisponivel');
+
+        setLivros([
+          {
+            id: 1,
+            titulo: 'Resumo do acervo',
+            disponiveis: data.resumo.livrosDisponiveis || 0,
+            totalExemplares: data.resumo.totalLivros || 0,
+          },
+        ]);
+        setEmprestimos(data.ultimosEmprestimos || []);
+        return;
+      } catch (err: any) {
+        const status = err?.response?.status;
+        if (status && status !== 404 && status !== 403) {
+          throw err;
+        }
+      }
+
       const [resLivros, resEmp] = await Promise.all([
         api.get('/livros'),
         api.get('/emprestimos'),
@@ -81,7 +119,12 @@ export default function Dashboard() {
   const ativos = emprestimos.filter(e => e.status === 'reservado' || e.status === 'retirado');
   const atrasados = emprestimos.filter(e => e.status === 'atrasado');
   const devolvidos = emprestimos.filter(e => e.status === 'devolvido');
-  const disponiveis = livros.filter(l => (l.disponiveis || 0) > 0);
+  const totalLivros = livros.length === 1 && livros[0]?.titulo === 'Resumo do acervo'
+    ? livros[0].totalExemplares || 0
+    : livros.length;
+  const disponiveis = livros.length === 1 && livros[0]?.titulo === 'Resumo do acervo'
+    ? Array.from({ length: livros[0].disponiveis || 0 }, (_, index) => ({ id: index + 1 }))
+    : livros.filter(l => (l.disponiveis || 0) > 0);
 
   const livrosMaisEmprestados = Object.entries(
     emprestimos.reduce((acc, emp: any) => {
@@ -131,7 +174,9 @@ export default function Dashboard() {
       Status: e.status || '—', Reserva: formatarData(e.dataReserva), Devolucao: formatarData(e.dataDevolucao),
     }));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumo), 'Resumo');
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(livrosRows), 'Livros');
+    if (livros.length !== 1 || livros[0]?.titulo !== 'Resumo do acervo') {
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(livrosRows), 'Livros');
+    }
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(emprestimosRows), 'Emprestimos');
     XLSX.writeFile(wb, `relatorio-biblioteca-${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
@@ -148,7 +193,7 @@ export default function Dashboard() {
       startY: 80,
       head: [['Indicador', 'Valor']],
       body: [
-        ['Total de livros', String(livros.length)],
+        ['Total de livros', String(totalLivros)],
         ['Livros disponíveis', String(disponiveis.length)],
         ['Empréstimos ativos', String(ativos.length)],
         ['Em atraso', String(atrasados.length)],
@@ -163,7 +208,9 @@ export default function Dashboard() {
     autoTable(doc, {
       startY: y + 10,
       head: [['ID', 'Título', 'Autor', 'Gênero', 'Disp./Total']],
-      body: livros.map(l => [String(l.id), l.titulo || '—', l.autor || '—', l.genero || '—', `${l.disponiveis || 0}/${l.totalExemplares || 0}`]),
+      body: livros.length === 1 && livros[0]?.titulo === 'Resumo do acervo'
+        ? [[String(totalLivros), 'Resumo do acervo', '—', '—', `${disponiveis.length}/${totalLivros}`]]
+        : livros.map(l => [String(l.id), l.titulo || '—', l.autor || '—', l.genero || '—', `${l.disponiveis || 0}/${l.totalExemplares || 0}`]),
       headStyles: { fillColor: [74, 124, 89] },
       styles: { fontSize: 9 },
     });
@@ -182,7 +229,7 @@ export default function Dashboard() {
   }
 
   const stats = [
-    { num: livros.length, label: 'Total de livros', icon: '📚', cor: '#c97b2e', link: '/livros', filtro: undefined },
+    { num: totalLivros, label: 'Total de livros', icon: '📚', cor: '#c97b2e', link: '/livros', filtro: undefined },
     { num: ativos.length, label: 'Empréstimos ativos', icon: '📋', cor: '#4a7c59', link: '/emprestimos', filtro: 'retirado' },
     { num: atrasados.length, label: 'Em atraso', icon: '⚠️', cor: '#b84c2e', link: '/emprestimos', filtro: 'atrasado' },
     { num: disponiveis.length, label: 'Livros disponíveis', icon: '✓', cor: '#4a7c59', link: '/livros', filtro: undefined },
@@ -227,7 +274,7 @@ export default function Dashboard() {
               <h2 style={s.cardTitulo}>📊 Resumo do acervo</h2>
               <div style={s.resumoList}>
                 {[
-                  { label: 'Total de livros', valor: livros.length },
+                  { label: 'Total de livros', valor: totalLivros },
                   { label: 'Disponíveis', valor: disponiveis.length },
                   { label: 'Emprestados', valor: ativos.length },
                   { label: 'Em atraso', valor: atrasados.length },
