@@ -5,6 +5,7 @@ import jsPDF from 'jspdf';
 import Toast from '../components/Toast';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import useSmartRefresh from '../hooks/useSmartRefresh';
 
 interface Livro {
   id: number;
@@ -51,20 +52,12 @@ export default function Dashboard() {
   }).format(new Date(agora)));
   const saudacao = horaAtual < 12 ? 'Bom dia' : horaAtual < 18 ? 'Boa tarde' : 'Boa noite';
 
+  useSmartRefresh(carregarDados, { intervalMs: 45000, minRefetchGapMs: 8000 });
+
   useEffect(() => {
-    carregarDados(true);
-    const refreshInterval = setInterval(() => { carregarDados(false); }, 15000);
     const clockInterval = setInterval(() => { setAgora(Date.now()); }, 60000);
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') carregarDados(false);
-    };
-    window.addEventListener('focus', handleVisibility);
-    document.addEventListener('visibilitychange', handleVisibility);
     return () => {
-      clearInterval(refreshInterval);
       clearInterval(clockInterval);
-      window.removeEventListener('focus', handleVisibility);
-      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, []);
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import Toast from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
@@ -43,6 +43,7 @@ export default function Usuarios() {
   const [modal, setModal] = useState<{ message: string; onConfirm: () => void } | null>(null);
   const [pagina, setPagina] = useState(1);
   const [form, setForm] = useState(formVazio);
+  const historicoCacheRef = useRef<Emprestimo[] | null>(null);
 
   function showToast(message: string, type: 'success' | 'error') {
     setToast({ message, type });
@@ -66,8 +67,13 @@ export default function Usuarios() {
     try {
       setCarregandoHistorico(true);
       setUsuarioSelecionado(usuario);
-      const { data } = await api.get('/emprestimos');
-      setHistoricoUsuario(data.filter((e: any) => e.usuarioId === usuario.id));
+      let emprestimos = historicoCacheRef.current;
+      if (!emprestimos) {
+        const { data } = await api.get('/emprestimos');
+        emprestimos = data;
+        historicoCacheRef.current = data;
+      }
+      setHistoricoUsuario(emprestimos.filter((e: any) => e.usuarioId === usuario.id));
     } catch {
       showToast('Erro ao carregar histórico', 'error');
     } finally {

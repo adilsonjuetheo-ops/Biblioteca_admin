@@ -4,6 +4,7 @@ import api from '../services/api';
 import Toast from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
 import Paginacao from '../components/Paginacao';
+import useSmartRefresh from '../hooks/useSmartRefresh';
 
 const POR_PAGINA = 10;
 
@@ -23,28 +24,7 @@ export default function Emprestimos() {
     setToast({ message, type });
   }
 
-  useEffect(() => {
-    carregarEmprestimos();
-
-    const refreshInterval = setInterval(() => {
-      carregarEmprestimos(false);
-    }, 15000);
-
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        carregarEmprestimos(false);
-      }
-    };
-
-    window.addEventListener('focus', handleVisibility);
-    document.addEventListener('visibilitychange', handleVisibility);
-
-    return () => {
-      clearInterval(refreshInterval);
-      window.removeEventListener('focus', handleVisibility);
-      document.removeEventListener('visibilitychange', handleVisibility);
-    };
-  }, []);
+  useSmartRefresh(carregarEmprestimos, { intervalMs: 45000, minRefetchGapMs: 8000 });
 
   async function carregarEmprestimos(exibirSpinner = true) {
     try {

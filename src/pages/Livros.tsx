@@ -3,6 +3,7 @@ import api from '../services/api';
 import Toast from '../components/Toast';
 import ConfirmModal from '../components/ConfirmModal';
 import Paginacao from '../components/Paginacao';
+import useSmartRefresh from '../hooks/useSmartRefresh';
 
 const POR_PAGINA = 10;
 const GOOGLE_BOOKS_API_KEY = import.meta.env.VITE_GOOGLE_BOOKS_API_KEY?.trim() || '';
@@ -216,20 +217,7 @@ export default function Livros() {
     return [];
   }
 
-  useEffect(() => {
-    carregarLivros();
-    const refreshInterval = setInterval(() => carregarLivros(false), 15000);
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') carregarLivros(false);
-    };
-    window.addEventListener('focus', handleVisibility);
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => {
-      clearInterval(refreshInterval);
-      window.removeEventListener('focus', handleVisibility);
-      document.removeEventListener('visibilitychange', handleVisibility);
-    };
-  }, []);
+  useSmartRefresh(carregarLivros, { intervalMs: 45000, minRefetchGapMs: 8000 });
 
   // Fecha sugestões ao clicar fora
   useEffect(() => {
