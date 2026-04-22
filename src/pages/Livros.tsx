@@ -5,6 +5,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import Paginacao from '../components/Paginacao';
 
 const POR_PAGINA = 10;
+const GOOGLE_BOOKS_API_KEY = import.meta.env.VITE_GOOGLE_BOOKS_API_KEY?.trim() || '';
 
 interface Livro {
   id: number;
@@ -102,7 +103,7 @@ export default function Livros() {
   const [buscandoLivro, setBuscandoLivro] = useState(false);
   const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
   const [tituloDigitado, setTituloDigitado] = useState(false);
-  const [erroBuscaLivro, setErroBuscaLivro] = useState(false);
+  const [erroBuscaLivro, setErroBuscaLivro] = useState<string | null>(null);
   const tituloWrapRef = useRef<HTMLDivElement>(null);
 
   function showToast(message: string, type: 'success' | 'error') {
@@ -110,6 +111,10 @@ export default function Livros() {
   }
 
   async function buscarSugestoesGoogleBooks(titulo: string, signal: AbortSignal): Promise<Sugestao[]> {
+    if (!GOOGLE_BOOKS_API_KEY) {
+      throw new Error('Google Books API key ausente');
+    }
+
     const tituloLimpo = titulo.trim();
     const tituloNormalizado = normalizarBusca(tituloLimpo);
     const consultas = Array.from(new Set([
@@ -126,6 +131,7 @@ export default function Livros() {
         orderBy: 'relevance',
         printType: 'books',
         langRestrict: 'pt',
+        key: GOOGLE_BOOKS_API_KEY,
       });
       const resp = await fetch(`https://www.googleapis.com/books/v1/volumes?${params.toString()}`, {
         signal,
@@ -189,13 +195,13 @@ export default function Livros() {
     if (!tituloDigitado || form.titulo.length < 3) {
       setSugestoes([]);
       setMostrarSugestoes(false);
-      setErroBuscaLivro(false);
+      setErroBuscaLivro(null);
       return;
     }
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       setBuscandoLivro(true);
-      setErroBuscaLivro(false);
+      setErroBuscaLivro(null);
       try {
         const items = await buscarSugestoesGoogleBooks(form.titulo, controller.signal);
         setSugestoes(items);
@@ -204,7 +210,11 @@ export default function Livros() {
         if (error instanceof DOMException && error.name === 'AbortError') return;
         setSugestoes([]);
         setMostrarSugestoes(false);
-        setErroBuscaLivro(true);
+        setErroBuscaLivro(
+          GOOGLE_BOOKS_API_KEY
+            ? 'Nao foi possivel buscar sugestoes'
+            : 'Configure a chave da Google Books para habilitar as sugestoes'
+        );
       } finally {
         if (!controller.signal.aborted) {
           setBuscandoLivro(false);
@@ -230,7 +240,7 @@ export default function Livros() {
     setMostrarSugestoes(false);
     setSugestoes([]);
     setTituloDigitado(false);
-    setErroBuscaLivro(false);
+    setErroBuscaLivro(null);
   }
 
   async function carregarLivros(exibirSpinner = true) {
@@ -310,7 +320,7 @@ export default function Livros() {
     setEditando(null);
     setForm({ ...FORM_VAZIO });
     setTituloDigitado(false);
-    setErroBuscaLivro(false);
+    setErroBuscaLivro(null);
     setMostrarForm(true);
   }
 
@@ -356,7 +366,7 @@ export default function Livros() {
                     <span style={s.dicaTag}>Nenhuma sugestão encontrada</span>
                   )}
                   {!editando && !buscandoLivro && erroBuscaLivro && (
-                    <span style={s.erroTag}>Não foi possível buscar sugestões</span>
+                    <span style={s.erroTag}>{erroBuscaLivro}</span>
                   )}
                 </label>
                 <div style={{ position: 'relative' }}>
@@ -572,6 +582,7 @@ const s: Record<string, React.CSSProperties> = {
   label: { fontSize: 12, fontWeight: 700, color: '#8a7d68', textTransform: 'uppercase', letterSpacing: 0.5, display: 'flex', alignItems: 'center', gap: 8 },
   buscandoTag: { fontSize: 11, color: '#c97b2e', fontWeight: 600, textTransform: 'none', letterSpacing: 0 },
   dicaTag: { fontSize: 11, color: '#4a7c59', fontWeight: 600, textTransform: 'none', letterSpacing: 0 },
+  erroTag: { fontSize: 11, color: '#b84c2e', fontWeight: 600, textTransform: 'none', letterSpacing: 0 },
   input: { height: 44, borderRadius: 10, border: '1px solid #d9cfbe', background: '#f5efe3', padding: '0 14px', fontSize: 14, color: '#1a1208', outline: 'none', width: '100%', boxSizing: 'border-box' },
   sugestoesList: {
     position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
