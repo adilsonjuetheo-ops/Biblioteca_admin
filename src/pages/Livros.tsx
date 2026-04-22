@@ -51,6 +51,14 @@ interface GoogleBooksItem {
 
 interface GoogleBooksResponse {
   items?: GoogleBooksItem[];
+  error?: {
+    code?: number;
+    message?: string;
+    errors?: Array<{
+      message?: string;
+      reason?: string;
+    }>;
+  };
 }
 
 function normalizarBusca(texto: string): string {
@@ -81,6 +89,16 @@ function mapearGenero(categories: string[]): string {
   if (texto.includes('romance') || texto.includes('love') || texto.includes('fiction')) return 'Romance';
   if (texto.includes('short stor') || texto.includes('conto')) return 'Conto';
   return '';
+}
+
+function sanitizarMensagemGoogleBooks(message: string): string {
+  const texto = message.toLowerCase();
+  if (texto.includes('api key not valid')) return 'A chave da Google Books API e invalida.';
+  if (texto.includes('referer')) return 'A chave da Google Books API nao autoriza este dominio.';
+  if (texto.includes('quota')) return 'A cota da Google Books API foi atingida.';
+  if (texto.includes('billing')) return 'Ative o faturamento do projeto Google Cloud para usar esta chave.';
+  if (texto.includes('permission')) return 'A chave da Google Books API nao tem permissao para esta requisicao.';
+  return message;
 }
 
 const FORM_VAZIO = {
@@ -123,25 +141,49 @@ export default function Livros() {
       return cacheSugestoesRef.current[chaveCache];
     }
 
-    const consultas = Array.from(new Set([
-      `intitle:"${tituloLimpo}"`,
-      tituloNormalizado !== tituloLimpo ? `intitle:"${tituloNormalizado}"` : '',
-    ])).filter(query => query.length >= 3);
+    const consultas = [
+      { q: `intitle:"${tituloLimpo}"`, langRestrict: 'pt' },
+      tituloNormalizado !== tituloLimpo ? { q: `intitle:"${tituloNormalizado}"`, langRestrict: 'pt' } : null,
+      { q: tituloLimpo, langRestrict: 'pt' },
+      tituloNormalizado !== tituloLimpo ? { q: tituloNormalizado, langRestrict: 'pt' } : null,
+      { q: `intitle:"${tituloLimpo}"` },
+      tituloNormalizado !== tituloLimpo ? { q: `intitle:"${tituloNormalizado}"` } : null,
+      { q: tituloLimpo },
+      tituloNormalizado !== tituloLimpo ? { q: tituloNormalizado } : null,
+    ].filter((query): query is { q: string; langRestrict?: string } => Boolean(query?.q && query.q.length >= 3));
 
-    for (const query of consultas) {
+    let ultimoErro: string | null = null;
+
+    for (const tentativa of consultas) {
       const params = new URLSearchParams({
-        q: query,
+        q: tentativa.q,
         maxResults: '5',
         orderBy: 'relevance',
         printType: 'books',
-        langRestrict: 'pt',
         key: GOOGLE_BOOKS_API_KEY,
       });
+      if (tentativa.langRestrict) {
+        params.set('langRestrict', tentativa.langRestrict);
+      }
       const resp = await fetch(`https://www.googleapis.com/books/v1/volumes?${params.toString()}`, {
         signal,
       });
       if (!resp.ok) {
-        throw new Error(`Google Books retornou ${resp.status}`);
+        let detalhe = `Google Books retornou ${resp.status}`;
+        try {
+          const erroData: GoogleBooksResponse = await resp.json();
+          const bruto =
+            erroData.error?.message ||
+            erroData.error?.errors?.find(item => item.message)?.message ||
+            erroData.error?.errors?.find(item => item.reason)?.reason;
+          if (bruto) {
+            detalhe = sanitizarMensagemGoogleBooks(bruto);
+          }
+        } catch {
+          // Mantem o status HTTP como fallback.
+        }
+        ultimoErro = detalhe;
+        continue;
       }
 
       const data: GoogleBooksResponse = await resp.json();
@@ -164,6 +206,10 @@ export default function Livros() {
         cacheSugestoesRef.current[chaveCache] = items;
         return items;
       }
+    }
+
+    if (ultimoErro) {
+      throw new Error(ultimoErro);
     }
 
     cacheSugestoesRef.current[chaveCache] = [];
@@ -212,14 +258,17 @@ export default function Livros() {
         const items = await buscarSugestoesGoogleBooks(form.titulo, controller.signal);
         setSugestoes(items);
         setMostrarSugestoes(items.length > 0);
+        setErroBuscaLivro(items.length === 0 ? 'Nenhum livro encontrado. Tente um titulo mais curto ou sem subtitulo.' : null);
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return;
         setSugestoes([]);
         setMostrarSugestoes(false);
         setErroBuscaLivro(
-          GOOGLE_BOOKS_API_KEY
-            ? 'Nao foi possivel buscar sugestoes'
-            : 'Configure a chave da Google Books para habilitar as sugestoes'
+          error instanceof Error
+            ? error.message
+            : GOOGLE_BOOKS_API_KEY
+              ? 'Nao foi possivel buscar sugestoes'
+              : 'Configure a chave da Google Books para habilitar as sugestoes'
         );
       } finally {
         if (!controller.signal.aborted) {
