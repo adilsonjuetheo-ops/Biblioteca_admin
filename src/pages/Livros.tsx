@@ -28,6 +28,30 @@ interface Sugestao {
   genero: string;
 }
 
+interface GoogleBooksIndustryIdentifier {
+  type?: string;
+  identifier?: string;
+}
+
+interface GoogleBooksVolumeInfo {
+  title?: string;
+  authors?: string[];
+  description?: string;
+  categories?: string[];
+  imageLinks?: {
+    thumbnail?: string;
+  };
+  industryIdentifiers?: GoogleBooksIndustryIdentifier[];
+}
+
+interface GoogleBooksItem {
+  volumeInfo?: GoogleBooksVolumeInfo;
+}
+
+interface GoogleBooksResponse {
+  items?: GoogleBooksItem[];
+}
+
 function mapearGenero(categories: string[]): string {
   const texto = categories.join(' ').toLowerCase();
   if (texto.includes('biography') || texto.includes('autobio')) return 'Biografia';
@@ -110,18 +134,26 @@ export default function Livros() {
       setMostrarSugestoes(false);
       return;
     }
+    const controller = new AbortController();
     const timer = setTimeout(async () => {
       setBuscandoLivro(true);
       try {
-        const resp = await fetch(
-          `https://www.googleapis.com/books/v1/volumes?q=intitle:${encodeURIComponent(form.titulo)}&maxResults=6`
-        );
-        const data = await resp.json();
-        const items: Sugestao[] = (data.items || []).map((item: any) => {
-          const v = item.volumeInfo;
+        const params = new URLSearchParams({
+          q: `intitle:${form.titulo.trim()}`,
+          maxResults: '6',
+        });
+        const resp = await fetch(`https://www.googleapis.com/books/v1/volumes?${params.toString()}`, {
+          signal: controller.signal,
+        });
+        if (!resp.ok) {
+          throw new Error(`Google Books retornou ${resp.status}`);
+        }
+        const data: GoogleBooksResponse = await resp.json();
+        const items: Sugestao[] = (data.items || []).map((item) => {
+          const v = item.volumeInfo || {};
           const isbn =
-            (v.industryIdentifiers || []).find((id: any) => id.type === 'ISBN_13')?.identifier ||
-            (v.industryIdentifiers || []).find((id: any) => id.type === 'ISBN_10')?.identifier || '';
+            (v.industryIdentifiers || []).find((id) => id.type === 'ISBN_13')?.identifier ||
+            (v.industryIdentifiers || []).find((id) => id.type === 'ISBN_10')?.identifier || '';
           return {
             titulo: v.title || '',
             autor: (v.authors || []).join(', '),
@@ -133,13 +165,20 @@ export default function Livros() {
         });
         setSugestoes(items);
         setMostrarSugestoes(items.length > 0);
-      } catch {
-        // silently fail
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setSugestoes([]);
+        setMostrarSugestoes(false);
       } finally {
-        setBuscandoLivro(false);
+        if (!controller.signal.aborted) {
+          setBuscandoLivro(false);
+        }
       }
     }, 700);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [form.titulo, tituloDigitado]);
 
   function selecionarSugestao(sug: Sugestao) {
