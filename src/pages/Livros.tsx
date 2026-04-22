@@ -105,6 +105,7 @@ export default function Livros() {
   const [tituloDigitado, setTituloDigitado] = useState(false);
   const [erroBuscaLivro, setErroBuscaLivro] = useState<string | null>(null);
   const tituloWrapRef = useRef<HTMLDivElement>(null);
+  const cacheSugestoesRef = useRef<Record<string, Sugestao[]>>({});
 
   function showToast(message: string, type: 'success' | 'error') {
     setToast({ message, type });
@@ -117,17 +118,20 @@ export default function Livros() {
 
     const tituloLimpo = titulo.trim();
     const tituloNormalizado = normalizarBusca(tituloLimpo);
+    const chaveCache = tituloNormalizado.toLowerCase();
+    if (cacheSugestoesRef.current[chaveCache]) {
+      return cacheSugestoesRef.current[chaveCache];
+    }
+
     const consultas = Array.from(new Set([
-      tituloLimpo,
       `intitle:"${tituloLimpo}"`,
-      tituloNormalizado,
-      `intitle:"${tituloNormalizado}"`,
+      tituloNormalizado !== tituloLimpo ? `intitle:"${tituloNormalizado}"` : '',
     ])).filter(query => query.length >= 3);
 
     for (const query of consultas) {
       const params = new URLSearchParams({
         q: query,
-        maxResults: '6',
+        maxResults: '5',
         orderBy: 'relevance',
         printType: 'books',
         langRestrict: 'pt',
@@ -157,10 +161,12 @@ export default function Livros() {
       });
 
       if (items.length > 0) {
+        cacheSugestoesRef.current[chaveCache] = items;
         return items;
       }
     }
 
+    cacheSugestoesRef.current[chaveCache] = [];
     return [];
   }
 
@@ -190,7 +196,7 @@ export default function Livros() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Busca Google Books com debounce de 700ms
+  // Busca Google Books com debounce para reduzir consumo de quota
   useEffect(() => {
     if (!tituloDigitado || form.titulo.length < 3) {
       setSugestoes([]);
@@ -220,7 +226,7 @@ export default function Livros() {
           setBuscandoLivro(false);
         }
       }
-    }, 700);
+    }, 1200);
     return () => {
       clearTimeout(timer);
       controller.abort();
