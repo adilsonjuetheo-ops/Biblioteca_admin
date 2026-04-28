@@ -73,9 +73,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     const clockInterval = setInterval(() => { setAgora(Date.now()); }, 60000);
-    return () => {
-      clearInterval(clockInterval);
-    };
+    return () => { clearInterval(clockInterval); };
   }, []);
 
   async function carregarDados(exibirSpinner = true) {
@@ -140,6 +138,7 @@ export default function Dashboard() {
   const maiorTotalEmprestimos = livrosMaisEmprestados[0]?.total || 1;
 
   const anoAtual = new Date().getFullYear();
+  const mesAtual = new Date().getMonth();
   const nomesMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
   const emprestimosporMes = nomesMeses.map((mes, i) => ({
     mes,
@@ -150,15 +149,18 @@ export default function Dashboard() {
     }).length,
   }));
   const maxPorMes = Math.max(...emprestimosporMes.map(m => m.total), 1);
+  const totalAno = emprestimosporMes.reduce((sum, m) => sum + m.total, 0);
+  const todosMesZero = totalAno === 0;
 
   function formatarData(data?: string) {
     if (!data) return '—';
     return new Date(data).toLocaleDateString('pt-BR');
   }
+
   function exportarExcel() {
     const wb = XLSX.utils.book_new();
     const resumo = [
-      { Indicador: 'Total de livros', Valor: livros.length },
+      { Indicador: 'Total de livros', Valor: totalLivros },
       { Indicador: 'Livros disponíveis', Valor: disponiveis.length },
       { Indicador: 'Empréstimos ativos', Valor: ativos.length },
       { Indicador: 'Em atraso', Valor: atrasados.length },
@@ -199,11 +201,11 @@ export default function Dashboard() {
         ['Em atraso', String(atrasados.length)],
         ['Total devolvidos', String(devolvidos.length)],
       ],
-      headStyles: { fillColor: [201, 123, 46] },
+      headStyles: { fillColor: [200, 144, 46] },
     });
     let y = ((doc as any).lastAutoTable?.finalY || 80) + 24;
     doc.setFontSize(12);
-    doc.setTextColor(26, 18, 8);
+    doc.setTextColor(44, 31, 18);
     doc.text('Livros', 40, y);
     autoTable(doc, {
       startY: y + 10,
@@ -211,7 +213,7 @@ export default function Dashboard() {
       body: livros.length === 1 && livros[0]?.titulo === 'Resumo do acervo'
         ? [[String(totalLivros), 'Resumo do acervo', '—', '—', `${disponiveis.length}/${totalLivros}`]]
         : livros.map(l => [String(l.id), l.titulo || '—', l.autor || '—', l.genero || '—', `${l.disponiveis || 0}/${l.totalExemplares || 0}`]),
-      headStyles: { fillColor: [74, 124, 89] },
+      headStyles: { fillColor: [44, 122, 75] },
       styles: { fontSize: 9 },
     });
     y = ((doc as any).lastAutoTable?.finalY || y) + 24;
@@ -229,21 +231,32 @@ export default function Dashboard() {
   }
 
   const stats = [
-    { num: totalLivros, label: 'Total de livros', icon: '📚', cor: '#c97b2e', link: '/livros', filtro: undefined },
-    { num: ativos.length, label: 'Empréstimos ativos', icon: '📋', cor: '#4a7c59', link: '/emprestimos', filtro: 'retirado' },
-    { num: atrasados.length, label: 'Em atraso', icon: '⚠️', cor: '#b84c2e', link: '/emprestimos', filtro: 'atrasado' },
-    { num: disponiveis.length, label: 'Livros disponíveis', icon: '✓', cor: '#4a7c59', link: '/livros', filtro: undefined },
+    { num: totalLivros,        label: 'Total de livros',    unidade: 'títulos',     cor: '#C8902E', link: '/livros',      filtro: undefined },
+    { num: ativos.length,      label: 'Empréstimos ativos', unidade: 'em curso',    cor: '#3A7BC8', link: '/emprestimos', filtro: 'retirado' },
+    { num: atrasados.length,   label: 'Em atraso',          unidade: 'ocorrências', cor: '#C84040', link: '/emprestimos', filtro: 'atrasado' },
+    { num: disponiveis.length, label: 'Livros disponíveis', unidade: 'livres',      cor: '#2C7A4B', link: '/livros',      filtro: undefined },
   ];
+
+  const resumoItems = [
+    { label: 'Total de livros',  valor: totalLivros,        cor: '#C8902E', pct: 1 },
+    { label: 'Disponíveis',      valor: disponiveis.length, cor: '#2C7A4B', pct: totalLivros > 0 ? disponiveis.length / totalLivros : 0 },
+    { label: 'Emprestados',      valor: ativos.length,      cor: '#3A7BC8', pct: totalLivros > 0 ? ativos.length / totalLivros : 0 },
+    { label: 'Em atraso',        valor: atrasados.length,   cor: '#C84040', pct: totalLivros > 0 ? atrasados.length / totalLivros : 0 },
+    { label: 'Total devolvidos', valor: devolvidos.length,  cor: '#8B7355', pct: totalLivros > 0 ? devolvidos.length / totalLivros : 0 },
+  ];
+
   return (
     <div style={s.page}>
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+      {/* Top bar */}
       <div style={s.topBar}>
-        <div style={s.welcome}>
+        <div>
           <h1 style={s.titulo}>{saudacao}, {nome}! 👋</h1>
           <p style={s.subtitulo}>
             Aqui está o resumo da biblioteca hoje
             {refreshandoSilencioso && (
-              <span style={{ marginLeft: 8, fontSize: 12, color: '#8a7d68' }}>↻ atualizando...</span>
+              <span style={{ marginLeft: 8, fontSize: 12, color: '#8B7355' }}>↻ atualizando...</span>
             )}
           </p>
         </div>
@@ -256,153 +269,277 @@ export default function Dashboard() {
       {carregando ? (
         <div style={s.loading}>Carregando dados...</div>
       ) : (
-        <>
+        <div style={s.content}>
+          {/* KPI cards */}
           <div style={s.statsGrid}>
             {stats.map((st, i) => (
-              <div key={i} style={{ ...s.statCard, cursor: 'pointer' }}
-                onClick={() => navigate(st.link, { state: st.filtro ? { filtro: st.filtro } : undefined })}>
-                <div style={s.statIcon}>{st.icon}</div>
-                <div style={{ ...s.statNum, color: st.cor }}>{st.num}</div>
+              <div
+                key={i}
+                style={{ ...s.statCard, borderLeftColor: st.cor, cursor: 'pointer' }}
+                onClick={() => navigate(st.link, { state: st.filtro ? { filtro: st.filtro } : undefined })}
+              >
                 <div style={s.statLabel}>{st.label}</div>
-                <div style={{ fontSize: 11, color: '#c9b99a', marginTop: 6 }}>Ver →</div>
+                <div style={s.statNumRow}>
+                  <span style={{ ...s.statNum, color: st.cor }}>{st.num}</span>
+                  <span style={s.statUnidade}>{st.unidade}</span>
+                </div>
+                <div style={s.statLink}>Ver →</div>
               </div>
             ))}
           </div>
 
+          {/* Two-column panels */}
           <div style={s.grid2}>
+            {/* Resumo do acervo */}
             <div style={s.card}>
-              <h2 style={s.cardTitulo}>📊 Resumo do acervo</h2>
-              <div style={s.resumoList}>
-                {[
-                  { label: 'Total de livros', valor: totalLivros },
-                  { label: 'Disponíveis', valor: disponiveis.length },
-                  { label: 'Emprestados', valor: ativos.length },
-                  { label: 'Em atraso', valor: atrasados.length },
-                  { label: 'Total devolvidos', valor: devolvidos.length },
-                ].map((item, i) => (
+              <div style={s.cardHeader}>
+                <span>📊</span>
+                <span style={s.cardTitulo}>Resumo do acervo</span>
+              </div>
+              <div style={s.cardBody}>
+                {resumoItems.map((item, i) => (
                   <div key={i} style={s.resumoItem}>
                     <span style={s.resumoLabel}>{item.label}</span>
-                    <span style={{
-                      ...s.resumoValor,
-                      color: item.label === 'Em atraso' && item.valor > 0 ? '#b84c2e' : '#1a1208',
-                    }}>{item.valor}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={s.resumoBarBg}>
+                        <div style={{ ...s.resumoBarFill, width: `${item.pct * 100}%`, background: item.cor }} />
+                      </div>
+                      <span style={{
+                        ...s.resumoValor,
+                        color: item.label === 'Em atraso' && item.valor > 0 ? '#C84040' : '#2C1F12',
+                      }}>{item.valor}</span>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
 
+            {/* Últimos empréstimos */}
             <div style={s.card}>
-              <h2 style={s.cardTitulo}>📋 Últimos empréstimos</h2>
-              {emprestimos.length === 0 ? (
-                <p style={s.empty}>Nenhum empréstimo registrado</p>
-              ) : emprestimos.slice(0, 5).map((emp: any) => (
-                <div key={emp.id} style={s.empItem}>
-                  <div style={s.empId}>#{emp.id}</div>
-                  <div style={s.empInfo}>
-                    <div style={s.empTitulo}>{emp.livroTitulo || `Livro #${emp.livroId || emp.id}`}</div>
-                    <div style={s.empStatus}>{emp.usuarioNome || emp.status}</div>
+              <div style={s.cardHeader}>
+                <span>📋</span>
+                <span style={s.cardTitulo}>Últimos empréstimos</span>
+              </div>
+              <div style={s.cardBody}>
+                {emprestimos.length === 0 ? (
+                  <p style={s.empty}>Nenhum empréstimo registrado</p>
+                ) : emprestimos.slice(0, 5).map((emp: any) => (
+                  <div key={emp.id} style={s.empItem}>
+                    <div style={s.empId}>#{emp.id}</div>
+                    <div style={s.empInfo}>
+                      <div style={s.empTitulo}>{emp.livroTitulo || `Livro #${emp.livroId || emp.id}`}</div>
+                      <div style={s.empNome}>{emp.usuarioNome || '—'}</div>
+                    </div>
+                    <span style={{
+                      ...s.badge,
+                      background: emp.status === 'devolvido' ? 'rgba(44,122,75,0.12)' :
+                        emp.status === 'atrasado' ? 'rgba(200,64,64,0.12)' : 'rgba(200,144,46,0.12)',
+                      color: emp.status === 'devolvido' ? '#2C7A4B' :
+                        emp.status === 'atrasado' ? '#C84040' : '#A06A1A',
+                    }}>{emp.status}</span>
                   </div>
-                  <span style={{
-                    ...s.badge,
-                    background: emp.status === 'devolvido' ? 'rgba(74,124,89,0.12)' :
-                      emp.status === 'atrasado' ? 'rgba(184,76,46,0.12)' : 'rgba(201,123,46,0.12)',
-                    color: emp.status === 'devolvido' ? '#4a7c59' :
-                      emp.status === 'atrasado' ? '#b84c2e' : '#c97b2e',
-                  }}>{emp.status}</span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
 
+          {/* Ranking */}
           <div style={s.card}>
-            <h2 style={s.cardTitulo}>📚 Livros mais emprestados</h2>
-            {livrosMaisEmprestados.length === 0 ? (
-              <p style={s.empty}>Nenhum empréstimo registrado para gerar ranking</p>
-            ) : (
-              <div style={s.rankingList}>
-                {livrosMaisEmprestados.map((item, index) => (
-                  <div key={item.titulo} style={s.rankingItem}>
-                    <div style={s.rankingHeader}>
-                      <span style={s.rankingTitulo}>{index + 1}. {item.titulo}</span>
-                      <span style={s.rankingTotal}>{item.total} empréstimos</span>
-                    </div>
-                    <div style={s.rankingBarBg}>
-                      <div style={{ ...s.rankingBar, width: `${(item.total / maiorTotalEmprestimos) * 100}%` }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div style={s.cardHeader}>
+              <span>🏆</span>
+              <span style={s.cardTitulo}>Livros mais emprestados</span>
+            </div>
+            <div style={s.cardBody}>
+              {livrosMaisEmprestados.length === 0 ? (
+                <p style={s.empty}>Nenhum empréstimo registrado para gerar ranking</p>
+              ) : (
+                <div style={s.rankingList}>
+                  {livrosMaisEmprestados.map((item, index) => {
+                    const medalhas = ['🥇', '🥈', '🥉'];
+                    const icone = medalhas[index] ?? `${index + 1}.`;
+                    const isPrimeiro = index === 0;
+                    const label = `${item.total} empréstimo${item.total !== 1 ? 's' : ''}`;
+                    return (
+                      <div key={item.titulo} style={s.rankingItem}>
+                        <div style={s.rankingHeader}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                            <span style={{ fontSize: medalhas[index] ? 18 : 13, flexShrink: 0, minWidth: 26, textAlign: 'center' }}>
+                              {icone}
+                            </span>
+                            <span style={{
+                              ...s.rankingTitulo,
+                              fontSize: isPrimeiro ? 15 : 13,
+                              fontWeight: isPrimeiro ? 700 : 500,
+                              color: isPrimeiro ? '#2C1F12' : '#5a4a3a',
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            }}>{item.titulo}</span>
+                          </div>
+                          <span style={{
+                            ...s.rankingBadge,
+                            background: isPrimeiro ? 'rgba(200,144,46,0.15)' : 'rgba(44,122,75,0.1)',
+                            color: isPrimeiro ? '#C8902E' : '#2C7A4B',
+                          }}>{label}</span>
+                        </div>
+                        <div style={{ paddingLeft: 36 }}>
+                          <div style={s.rankingBarBg}>
+                            <div style={{
+                              ...s.rankingBar,
+                              width: `${(item.total / maiorTotalEmprestimos) * 100}%`,
+                              background: isPrimeiro
+                                ? 'linear-gradient(90deg, #e8943a 0%, #C8902E 100%)'
+                                : 'linear-gradient(90deg, #C8902E 0%, #2C7A4B 100%)',
+                            }} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
-          <div style={{ ...s.card, marginTop: 20 }}>
-            <h2 style={s.cardTitulo}>📈 Empréstimos por mês — {anoAtual}</h2>
-            {emprestimos.length === 0 ? (
-              <p style={s.empty}>Nenhum empréstimo registrado para gerar o gráfico</p>
-            ) : (
-              <div style={s.graficoWrap}>
-                {emprestimosporMes.map(({ mes, total }) => (
-                  <div key={mes} style={s.graficoColuna}>
-                    <span style={s.graficoValor}>{total > 0 ? total : ''}</span>
-                    <div style={s.graficoBarra}>
-                      <div style={{
-                        ...s.graficoBarraFill,
-                        height: `${(total / maxPorMes) * 100}%`,
-                        opacity: total === 0 ? 0.2 : 1,
-                      }} />
-                    </div>
-                    <span style={s.graficoMes}>{mes}</span>
-                  </div>
-                ))}
+          {/* Gráfico mensal */}
+          <div style={{ ...s.card, marginTop: 0 }}>
+            <div style={s.cardHeader}>
+              <span>📈</span>
+              <div style={{ display: 'flex', flex: 1, justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={s.cardTitulo}>Empréstimos por mês — {anoAtual}</span>
+                <span style={{ fontSize: 13, color: '#8B7355', fontWeight: 500 }}>
+                  Total: <span style={{ color: '#C8902E', fontWeight: 700 }}>{totalAno}</span>
+                </span>
               </div>
-            )}
+            </div>
+            <div style={s.cardBody}>
+              {todosMesZero ? (
+                <p style={s.empty}>Sem empréstimos registrados em {anoAtual}</p>
+              ) : (
+                <div style={s.graficoWrap}>
+                  {emprestimosporMes.map(({ mes, total }, i) => {
+                    const isAtual = i === mesAtual;
+                    return (
+                      <div key={mes} style={s.graficoColuna} title={`${mes}: ${total} empréstimo${total !== 1 ? 's' : ''}`}>
+                        <span style={{ ...s.graficoValor, visibility: total > 0 ? 'visible' : 'hidden' }}>{total}</span>
+                        <div style={s.graficoEixo}>
+                          <div style={{
+                            ...s.graficoBarraFill,
+                            height: total === 0 ? 2 : `${Math.max((total / maxPorMes) * 100, 4)}%`,
+                            opacity: total === 0 ? 0.25 : 1,
+                            background: isAtual
+                              ? 'linear-gradient(180deg, #e8943a 0%, #2C7A4B 100%)'
+                              : 'linear-gradient(180deg, #C8902E 0%, #2C7A4B 100%)',
+                            boxShadow: isAtual && total > 0 ? '0 2px 12px rgba(200,144,46,0.4)' : 'none',
+                            borderRadius: total === 0 ? 2 : '6px 6px 3px 3px',
+                          }} />
+                        </div>
+                        <span style={{
+                          ...s.graficoMes,
+                          color: isAtual ? '#C8902E' : '#8B7355',
+                          fontWeight: isAtual ? 700 : 500,
+                        }}>{mes}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
 }
 
 const s: Record<string, React.CSSProperties> = {
-  page: { padding: 32 },
-  topBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 24, flexWrap: 'wrap' },
-  welcome: { marginBottom: 8 },
-  titulo: { fontSize: 26, fontWeight: 700, color: '#1a1208', marginBottom: 4 },
-  subtitulo: { fontSize: 15, color: '#8a7d68' },
-  exportBtns: { display: 'flex', gap: 10, flexWrap: 'wrap' },
-  btnPdf: { background: '#4a6490', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
-  btnExcel: { background: '#4a7c59', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' },
-  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 28 },
-  statCard: { background: '#fdfaf4', border: '1px solid #d9cfbe', borderRadius: 16, padding: 24, textAlign: 'center' },
-  statIcon: { fontSize: 28, marginBottom: 10 },
-  statNum: { fontSize: 32, fontWeight: 700, marginBottom: 6 },
-  statLabel: { fontSize: 13, color: '#8a7d68', fontWeight: 500 },
-  grid2: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20, marginBottom: 20 },
-  card: { background: '#fdfaf4', border: '1px solid #d9cfbe', borderRadius: 16, padding: 24 },
-  cardTitulo: { fontSize: 16, fontWeight: 700, color: '#1a1208', marginBottom: 20 },
-  resumoList: { display: 'flex', flexDirection: 'column', gap: 12 },
-  resumoItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #f0e8dc' },
-  resumoLabel: { fontSize: 14, color: '#8a7d68' },
-  resumoValor: { fontSize: 18, fontWeight: 700, color: '#1a1208' },
-  empItem: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: '1px solid #f0e8dc' },
-  empId: { width: 36, height: 36, borderRadius: 10, background: '#f5efe3', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#8a7d68', flexShrink: 0 },
-  empInfo: { flex: 1 },
-  empTitulo: { fontSize: 14, fontWeight: 600, color: '#1a1208' },
-  empStatus: { fontSize: 12, color: '#8a7d68', marginTop: 2 },
-  badge: { padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700 },
+  page: { background: '#F5F0E8', minHeight: '100vh', display: 'flex', flexDirection: 'column' },
+
+  topBar: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    gap: 16, flexWrap: 'wrap',
+    background: '#FAF6EE',
+    borderBottom: '1px solid rgba(100,60,20,0.1)',
+    padding: '16px 24px',
+    flexShrink: 0,
+  },
+  titulo: { fontSize: 22, fontWeight: 600, color: '#2C1F12', marginBottom: 3 },
+  subtitulo: { fontSize: 14, color: '#8B7355' },
+  exportBtns: { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' },
+  btnPdf: {
+    background: 'transparent', border: '1px solid #C8902E', color: '#C8902E',
+    borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 500, cursor: 'pointer',
+  },
+  btnExcel: {
+    background: '#2C7A4B', border: '1px solid #2C7A4B', color: '#fff',
+    borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 500, cursor: 'pointer',
+  },
+
+  content: { padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14 },
+
+  statsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 },
+  statCard: {
+    background: '#FAF6EE',
+    border: '0.5px solid rgba(100,60,20,0.12)',
+    borderLeft: '3px solid',
+    borderRadius: 12,
+    padding: '16px 18px',
+    boxSizing: 'border-box',
+  },
+  statLabel: { fontSize: 11, color: '#8B7355', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 },
+  statNumRow: { display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 8 },
+  statNum: { fontSize: 26, fontWeight: 500, lineHeight: 1 },
+  statUnidade: { fontSize: 13, color: '#8B7355' },
+  statLink: { fontSize: 11, color: '#C8902E', fontWeight: 500 },
+
+  grid2: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14 },
+
+  card: { background: '#FAF6EE', border: '0.5px solid rgba(100,60,20,0.12)', borderRadius: 12, overflow: 'hidden' },
+  cardHeader: {
+    display: 'flex', alignItems: 'center', gap: 8,
+    padding: '13px 16px',
+    borderBottom: '0.5px solid rgba(100,60,20,0.1)',
+  },
+  cardTitulo: { fontSize: 14, fontWeight: 600, color: '#2C1F12' },
+  cardBody: { padding: 16 },
+
+  resumoItem: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: '10px 0', borderBottom: '0.5px solid rgba(100,60,20,0.07)',
+  },
+  resumoLabel: { fontSize: 13, color: '#8B7355' },
+  resumoValor: { fontSize: 14, fontWeight: 500, color: '#2C1F12', minWidth: 24, textAlign: 'right' },
+  resumoBarBg: { width: 100, height: 4, borderRadius: 2, background: 'rgba(100,60,20,0.1)', overflow: 'hidden', flexShrink: 0 },
+  resumoBarFill: { height: '100%', borderRadius: 2, transition: 'width 0.5s ease' },
+
+  empItem: {
+    display: 'flex', alignItems: 'center', gap: 12,
+    padding: '9px 0', borderBottom: '0.5px solid rgba(100,60,20,0.07)',
+  },
+  empId: {
+    width: 28, height: 28, borderRadius: 8,
+    background: 'rgba(200,144,46,0.12)', color: '#C8902E',
+    fontSize: 11, fontWeight: 500,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  empInfo: { flex: 1, minWidth: 0 },
+  empTitulo: { fontSize: 13, fontWeight: 500, color: '#2C1F12', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+  empNome: { fontSize: 11, color: '#8B7355', marginTop: 1 },
+  badge: { padding: '3px 9px', borderRadius: 20, fontSize: 10, fontWeight: 500, flexShrink: 0 },
+
   rankingList: { display: 'flex', flexDirection: 'column', gap: 14 },
-  rankingItem: { display: 'flex', flexDirection: 'column', gap: 6 },
-  rankingHeader: { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' },
-  rankingTitulo: { color: '#1a1208', fontSize: 14, fontWeight: 600 },
-  rankingTotal: { color: '#8a7d68', fontSize: 12, fontWeight: 700 },
-  rankingBarBg: { width: '100%', height: 10, borderRadius: 999, background: '#efe6d8', overflow: 'hidden' },
-  rankingBar: { height: '100%', borderRadius: 999, background: 'linear-gradient(90deg, #c97b2e 0%, #4a7c59 100%)' },
-  loading: { textAlign: 'center', padding: 60, color: '#8a7d68', fontSize: 16 },
-  empty: { color: '#8a7d68', fontSize: 14, textAlign: 'center', marginTop: 20 },
-  graficoWrap: { display: 'flex', alignItems: 'flex-end', gap: 8, height: 180, paddingTop: 24 },
-  graficoColuna: { display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, height: '100%' },
-  graficoValor: { fontSize: 11, fontWeight: 700, color: '#c97b2e', marginBottom: 4, minHeight: 16 },
-  graficoBarra: { flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end', background: '#f0e8dc', borderRadius: 6, overflow: 'hidden' },
-  graficoBarraFill: { width: '100%', background: 'linear-gradient(180deg, #c97b2e 0%, #4a7c59 100%)', borderRadius: 6, transition: 'height 0.4s ease' },
-  graficoMes: { fontSize: 11, color: '#8a7d68', marginTop: 6, fontWeight: 600 },
+  rankingItem: { display: 'flex', flexDirection: 'column', gap: 7 },
+  rankingHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
+  rankingTitulo: { color: '#2C1F12', fontSize: 14, fontWeight: 500 },
+  rankingBadge: { flexShrink: 0, fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20 },
+  rankingBarBg: { width: '100%', height: 7, borderRadius: 999, background: 'rgba(100,60,20,0.1)', overflow: 'hidden' },
+  rankingBar: { height: '100%', borderRadius: 999, transition: 'width 0.5s ease' },
+
+  loading: { textAlign: 'center', padding: 60, color: '#8B7355', fontSize: 16 },
+  empty: { color: '#8B7355', fontSize: 14, textAlign: 'center', padding: '20px 0' },
+
+  graficoWrap: { display: 'flex', alignItems: 'flex-end', gap: 6, height: 200, paddingTop: 8 },
+  graficoColuna: { display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, height: '100%', cursor: 'default' },
+  graficoValor: { fontSize: 11, fontWeight: 700, color: '#C8902E', marginBottom: 4, minHeight: 16, lineHeight: '16px' },
+  graficoEixo: { flex: 1, width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' },
+  graficoBarraFill: { width: '100%', transition: 'height 0.5s ease' },
+  graficoMes: { fontSize: 11, color: '#8B7355', marginTop: 6, fontWeight: 500 },
 };

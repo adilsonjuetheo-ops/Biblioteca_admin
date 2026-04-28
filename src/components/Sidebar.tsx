@@ -2,20 +2,12 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const menus = [
-  { path: '/dashboard', icon: '▪', label: 'Dashboard' },
-  { path: '/livros',    icon: '▪', label: 'Acervo' },
-  { path: '/emprestimos', icon: '▪', label: 'Empréstimos' },
-  { path: '/usuarios',  icon: '▪', label: 'Usuários' },
-  { path: '/comunicados', icon: '▪', label: 'Comunicados' },
+  { path: '/dashboard',    icon: '📊', label: 'Dashboard' },
+  { path: '/livros',       icon: '📚', label: 'Acervo' },
+  { path: '/emprestimos',  icon: '🗂️', label: 'Empréstimos' },
+  { path: '/usuarios',     icon: '👥', label: 'Usuários' },
+  { path: '/comunicados',  icon: '📢', label: 'Comunicados' },
 ];
-
-const icones: Record<string, string> = {
-  '/dashboard':   '📊',
-  '/livros':      '📚',
-  '/emprestimos': '🗂️',
-  '/usuarios':    '👥',
-  '/comunicados': '📢',
-};
 
 export default function Sidebar() {
   const navigate = useNavigate();
@@ -56,7 +48,7 @@ export default function Sidebar() {
               onMouseEnter={() => setHover(menu.path)}
               onMouseLeave={() => setHover(null)}
             >
-              <span style={{ ...s.menuIcon, fontSize: 20 }}>{icones[menu.path]}</span>
+              <span style={s.menuIcon}>{menu.icon}</span>
               <span>{menu.label}</span>
               {ativo && <span style={s.ativoIndicador} />}
             </button>
@@ -86,61 +78,61 @@ const s: Record<string, React.CSSProperties> = {
   sidebar: {
     width: 220,
     height: '100vh',
-    background: '#2d1f0e',
+    background: '#2C1F12',
     display: 'flex',
     flexDirection: 'column',
-    padding: '24px 16px',
+    padding: '24px 12px',
     flexShrink: 0,
     overflow: 'hidden',
     boxSizing: 'border-box',
   },
-  logo: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 36, padding: '0 8px' },
+  logo: { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 36, padding: '0 4px' },
   logoImgWrap: { width: 44, height: 44, borderRadius: 10, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 4, flexShrink: 0 },
   logoImg: { width: 34, height: 34, objectFit: 'contain' },
-  logoTitle: { fontSize: 12, lineHeight: 1.25, fontWeight: 700, color: '#f5efe3' },
-  logoSub: { fontSize: 11, color: '#c9a97a', marginTop: 2 },
+  logoTitle: { fontSize: 12, lineHeight: 1.25, fontWeight: 700, color: '#F0E6D0' },
+  logoSub: { fontSize: 11, color: '#C8902E', marginTop: 2 },
   nav: { display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0, overflowY: 'auto' },
   menuItem: {
     display: 'flex', alignItems: 'center', gap: 10,
-    padding: '11px 12px', borderRadius: 10, border: 'none',
-    background: 'transparent', color: 'rgba(245,239,227,0.75)',
-    fontSize: 14, fontWeight: 500, cursor: 'pointer',
+    padding: '9px 12px', borderRadius: 10, border: 'none',
+    background: 'transparent', color: 'rgba(240,230,208,0.65)',
+    fontSize: 14, fontWeight: 400, cursor: 'pointer',
     width: '100%', textAlign: 'left', position: 'relative',
     transition: 'background 0.15s, color 0.15s',
   },
   menuHover: {
     background: 'rgba(255,255,255,0.06)',
-    color: '#f5efe3',
+    color: '#F0E6D0',
   },
   menuAtivo: {
-    background: 'rgba(201,123,46,0.18)',
-    color: '#f0a84a',
-    fontWeight: 700,
+    background: 'rgba(200,144,46,0.18)',
+    color: '#E8A83A',
+    fontWeight: 500,
   },
   ativoIndicador: {
     position: 'absolute', right: 10, top: '50%',
     transform: 'translateY(-50%)',
     width: 6, height: 6, borderRadius: '50%',
-    background: '#c97b2e',
+    background: '#C8902E',
+    marginLeft: 'auto',
   },
-  menuIcon: { width: 26, textAlign: 'center', flexShrink: 0 },
+  menuIcon: { width: 24, textAlign: 'center', flexShrink: 0, fontSize: 18 },
   divisor: {
-    height: 1,
-    background: 'rgba(245,239,227,0.1)',
-    margin: '12px 8px',
+    borderTop: '0.5px solid rgba(255,255,255,0.08)',
+    margin: '12px 4px',
     flexShrink: 0,
   },
   logoutBtn: {
     display: 'flex', alignItems: 'center', gap: 10,
-    padding: '11px 12px', borderRadius: 10,
-    border: '1px solid rgba(245,239,227,0.12)',
-    background: 'transparent', color: 'rgba(245,239,227,0.55)',
+    padding: '9px 12px', borderRadius: 10,
+    border: '1px solid rgba(240,230,208,0.1)',
+    background: 'transparent', color: 'rgba(240,230,208,0.5)',
     fontSize: 14, cursor: 'pointer', width: '100%',
     flexShrink: 0, transition: 'background 0.15s, color 0.15s',
   },
   logoutHover: {
-    background: 'rgba(184,76,46,0.15)',
-    color: '#f0a84a',
-    borderColor: 'rgba(184,76,46,0.3)',
+    background: 'rgba(200,64,64,0.12)',
+    color: '#F0E6D0',
+    borderColor: 'rgba(200,64,64,0.25)',
   },
 };
