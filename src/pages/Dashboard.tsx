@@ -46,6 +46,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [livros, setLivros] = useState<Livro[]>([]);
   const [emprestimos, setEmprestimos] = useState<Emprestimo[]>([]);
+  const [emprestimosGrafico, setEmprestimosGrafico] = useState<any[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [refreshandoSilencioso, setRefresandoSilencioso] = useState(false);
   const [agora, setAgora] = useState(Date.now());
@@ -79,6 +80,9 @@ export default function Dashboard() {
   async function carregarDados(exibirSpinner = true) {
     if (exibirSpinner) { setCarregando(true); } else { setRefresandoSilencioso(true); }
     try {
+      const resEmpGrafico = await api.get('/emprestimos');
+      setEmprestimosGrafico(resEmpGrafico.data);
+
       try {
         const { data } = await api.get<DashboardResumoResponse>('/dashboard/resumo');
         if (!data?.resumo) throw new Error('Resumo indisponivel');
@@ -106,6 +110,7 @@ export default function Dashboard() {
       ]);
       setLivros(resLivros.data);
       setEmprestimos(resEmp.data);
+      setEmprestimosGrafico(resEmp.data);
     } catch {
       if (exibirSpinner) showToast('Erro ao carregar dados', 'error');
     } finally {
@@ -142,9 +147,10 @@ export default function Dashboard() {
   const nomesMeses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
   const emprestimosporMes = nomesMeses.map((mes, i) => ({
     mes,
-    total: (emprestimos as any[]).filter(e => {
-      if (!e.dataReserva) return false;
-      const d = new Date(e.dataReserva);
+    total: emprestimosGrafico.filter(e => {
+      const dataStr = e.dataReserva || e.dataRetirada || e.criadoEm;
+      if (!dataStr) return false;
+      const d = new Date(dataStr);
       return d.getFullYear() === anoAtual && d.getMonth() === i;
     }).length,
   }));
