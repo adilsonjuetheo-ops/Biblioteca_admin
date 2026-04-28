@@ -68,32 +68,60 @@ export default function Login() {
         @keyframes spin {
           to { transform: rotate(360deg); }
         }
+        .login-page {
+          position: relative;
+          min-height: 100vh;
+          background: #F0EBE0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 24px 20px;
+        }
+        .login-page::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background-image: radial-gradient(circle, rgba(150,100,40,0.07) 1px, transparent 1px);
+          background-size: 28px 28px;
+          pointer-events: none;
+        }
+        .login-input::placeholder {
+          color: #B8A899;
+        }
+        .login-btn:hover:not(:disabled) {
+          background: #B07A22 !important;
+        }
       `}</style>
-      <div style={s.page}>
+
+      <div className="login-page">
         <div style={s.card}>
 
           {/* Cabeçalho */}
           <div style={s.cabecalho}>
             <div style={s.logoWrap}>
-              <img src="./logo.png" alt="Logo" style={s.logo}
-                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              <img
+                src="./logo.png"
+                alt="Logo"
+                style={s.logo}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
             </div>
             <h1 style={s.title}>Biblioteca Marlene de Souza Queiroz</h1>
             <p style={s.subtitle}>E. E. Cel. José Venâncio de Souza</p>
             <span style={s.painelBadge}>Painel Administrativo</span>
           </div>
 
-          <div style={s.divisor} />
-
           {/* Formulário */}
           <form onSubmit={handleLogin} style={s.form}>
             <div style={s.field}>
               <label style={s.label}>E-mail institucional</label>
               <input
+                className="login-input"
                 style={{
                   ...s.input,
-                  borderColor: emailFocado ? '#c97b2e' : '#d9cfbe',
-                  boxShadow: emailFocado ? '0 0 0 3px rgba(201,123,46,0.15)' : 'none',
+                  borderColor: emailFocado ? '#C8902E' : 'rgba(100,60,20,0.18)',
+                  background: emailFocado ? '#ffffff' : '#FAF6EE',
                 }}
                 type="email"
                 autoComplete="email"
@@ -104,17 +132,19 @@ export default function Login() {
                 onBlur={() => setEmailFocado(false)}
               />
             </div>
+
             <div style={s.field}>
               <label style={s.label}>Senha</label>
               <div style={{ position: 'relative' }}>
                 <input
+                  className="login-input"
                   style={{
                     ...s.input,
-                    paddingRight: 44,
-                    borderColor: senhaFocada ? '#c97b2e' : '#d9cfbe',
-                    boxShadow: senhaFocada ? '0 0 0 3px rgba(201,123,46,0.15)' : 'none',
+                    paddingRight: 42,
                     width: '100%',
                     boxSizing: 'border-box',
+                    borderColor: senhaFocada ? '#C8902E' : 'rgba(100,60,20,0.18)',
+                    background: senhaFocada ? '#ffffff' : '#FAF6EE',
                   }}
                   type={mostrarSenha ? 'text' : 'password'}
                   autoComplete="current-password"
@@ -137,6 +167,7 @@ export default function Login() {
             </div>
 
             <button
+              className="login-btn"
               style={{
                 ...s.btn,
                 opacity: loading ? 0.8 : 1,
@@ -169,77 +200,96 @@ export default function Login() {
 }
 
 const s: Record<string, React.CSSProperties> = {
-  page: {
-    minHeight: '100vh',
-    background: '#f5efe3',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-    gap: 16,
-  },
   card: {
-    background: '#fdfaf4',
+    background: '#FFFFFF',
     borderRadius: 20,
-    padding: '36px 40px 40px',
+    padding: '40px 44px 36px',
     width: '100%',
-    maxWidth: 420,
-    boxShadow: '0 4px 6px rgba(26,18,8,0.04), 0 10px 40px rgba(26,18,8,0.10)',
+    maxWidth: 460,
+    border: '0.5px solid rgba(100,60,20,0.12)',
     animation: 'fadeSlideUp 0.35s ease',
+    position: 'relative',
+    zIndex: 1,
+    boxSizing: 'border-box',
   },
   cabecalho: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    marginBottom: 24,
-  },
-  logoWrap: { display: 'flex', justifyContent: 'center', marginBottom: 14 },
-  logo: { width: 88, height: 88, objectFit: 'contain' },
-  title: { fontSize: 18, fontWeight: 700, color: '#1a1208', textAlign: 'center', marginBottom: 4 },
-  subtitle: { fontSize: 13, color: '#4a7c59', textAlign: 'center', fontWeight: 600, marginBottom: 10 },
-  painelBadge: {
-    fontSize: 11,
-    fontWeight: 600,
-    color: '#8a7d68',
-    background: 'rgba(138,125,104,0.1)',
-    borderRadius: 20,
-    padding: '4px 12px',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-  },
-  divisor: {
-    height: 1,
-    background: '#ede5d8',
+    borderBottom: '1px solid rgba(100,60,20,0.08)',
+    paddingBottom: 24,
     marginBottom: 28,
   },
-  form: { display: 'flex', flexDirection: 'column', gap: 16 },
-  field: { display: 'flex', flexDirection: 'column', gap: 6 },
+  logoWrap: {
+    width: 68,
+    height: 68,
+    borderRadius: 16,
+    background: '#FAF6EE',
+    border: '1px solid rgba(100,60,20,0.12)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  logo: { maxWidth: 48, maxHeight: 48, objectFit: 'contain' },
+  title: {
+    fontSize: 17,
+    fontWeight: 500,
+    color: '#2C1F12',
+    textAlign: 'center',
+    lineHeight: 1.3,
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 12,
+    fontWeight: 500,
+    color: '#C8902E',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  painelBadge: {
+    fontSize: 10,
+    fontWeight: 500,
+    color: '#A06A1A',
+    background: 'rgba(200,144,46,0.1)',
+    border: '0.5px solid rgba(200,144,46,0.25)',
+    borderRadius: 20,
+    padding: '4px 12px',
+    letterSpacing: '0.8px',
+    textTransform: 'uppercase',
+  },
+  form: { display: 'flex', flexDirection: 'column', gap: 0 },
+  field: { display: 'flex', flexDirection: 'column', marginBottom: 16 },
   label: {
-    fontSize: 13,
-    fontWeight: 600,
-    color: '#5a4f3f',
+    fontSize: 12,
+    fontWeight: 500,
+    color: '#6B5240',
+    display: 'block',
+    marginBottom: 7,
+    letterSpacing: '0.2px',
   },
   input: {
-    height: 44,
+    height: 48,
     borderRadius: 10,
-    border: '1px solid #d9cfbe',
-    background: '#f5efe3',
+    border: '1px solid rgba(100,60,20,0.18)',
+    background: '#FAF6EE',
     padding: '0 14px',
     fontSize: 14,
-    color: '#1a1208',
+    color: '#2C1F12',
     outline: 'none',
-    transition: 'border-color 0.15s, box-shadow 0.15s',
+    transition: 'border-color 0.15s, background 0.15s',
+    width: '100%',
+    boxSizing: 'border-box',
   },
   olho: {
     position: 'absolute',
-    right: 12,
+    right: 14,
     top: '50%',
     transform: 'translateY(-50%)',
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    color: '#8a7d68',
+    color: '#B8A899',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -247,22 +297,24 @@ const s: Record<string, React.CSSProperties> = {
     lineHeight: 1,
   },
   btn: {
-    height: 48,
-    borderRadius: 12,
-    background: '#c97b2e',
-    color: '#1a1208',
-    fontWeight: 700,
+    width: '100%',
+    height: 50,
+    borderRadius: 10,
+    background: '#C8902E',
+    color: '#ffffff',
+    fontWeight: 500,
     fontSize: 15,
+    letterSpacing: '0.2px',
     border: 'none',
-    transition: 'opacity 0.15s',
-    marginTop: 4,
+    marginTop: 8,
+    transition: 'background 0.15s',
   },
   spinner: {
     display: 'inline-block',
     width: 16,
     height: 16,
-    border: '2px solid rgba(26,18,8,0.2)',
-    borderTopColor: '#1a1208',
+    border: '2px solid rgba(255,255,255,0.3)',
+    borderTopColor: '#ffffff',
     borderRadius: '50%',
     animation: 'spin 0.7s linear infinite',
     flexShrink: 0,
@@ -277,14 +329,18 @@ const s: Record<string, React.CSSProperties> = {
     padding: '10px 14px',
     fontSize: 13,
     border: '1px solid rgba(184,76,46,0.15)',
+    marginTop: 12,
   },
   erroIcone: {
     fontSize: 14,
     flexShrink: 0,
   },
   footer: {
-    fontSize: 12,
-    color: '#b0a494',
+    fontSize: 11,
+    color: '#B8A899',
     textAlign: 'center',
+    marginTop: 20,
+    position: 'relative',
+    zIndex: 1,
   },
 };
